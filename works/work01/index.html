@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>테스트 작품 1</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5/dist/fancybox/fancybox.css" />
+  <style>
+    body { font-family: sans-serif; padding: 1rem; background: #fff; }
+    .info { text-align: center; margin-bottom: 1rem; }
+    .info h2 { margin: 0.5rem 0; }
+    .images { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+    .images img { max-width: 90%; height: auto; border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body>
+  <div class="info">
+    <h2>테스트 작품 1</h2>
+    <p>작가: ChatGPT | 태그: 샘플, 테스트, 갤러리</p>
+  </div>
+  <div class="images">
+    <a href="001.jpg" data-fancybox="gallery"><img src="001.jpg" alt="001" /></a>
+    <a href="002.jpg" data-fancybox="gallery"><img src="002.jpg" alt="002" /></a>
+    <a href="003.jpg" data-fancybox="gallery"><img src="003.jpg" alt="003" /></a>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5/dist/fancybox/fancybox.umd.js"></script>
+</body>
+</html>

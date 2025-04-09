@@ -47,17 +47,12 @@
   animated: false,
     on: {
     ready: (fancybox) => {
-      // 페이지 표시 요소 추가
       const counter = document.createElement("div");
       counter.className = "fancybox__counter";
       counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
       fancybox.container.appendChild(counter);
-
-      // 클릭 → 다음 이미지 이동 처리
       fancybox.container.onclick = (e) => {
         const target = e.target;
-
-        // 클릭 대상이 이미지 & 컨트롤러 UI 아님
         if (target.tagName === 'IMG' && !target.closest('.fancybox__counter')) {
           fancybox.next();
         }

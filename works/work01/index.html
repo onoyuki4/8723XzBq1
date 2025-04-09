@@ -41,34 +41,36 @@
       Carousel: { infinite: false },
   Toolbar: false,
   Thumbs: false,
+  dragToClose: false,
   showClass: false,
   hideClass: false,
   animated: false,
-  dragToClose: false,
-  on: {
-    initCarousel: (fancybox) => {
-      fancybox.container.addEventListener('click', (e) => {
-       const isImage = e.target.tagName === 'IMG';
-       const isClickingUI = e.target.closest('.fancybox__counter');
-       if (isImage && !isClickingUI && !fancybox.isClosing) {
+    on: {
+    ready: (fancybox) => {
+      // 페이지 표시 요소 추가
+      const counter = document.createElement("div");
+      counter.className = "fancybox__counter";
+      counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
+      fancybox.container.appendChild(counter);
+
+      // 클릭 → 다음 이미지 이동 처리
+      fancybox.container.onclick = (e) => {
+        const target = e.target;
+
+        // 클릭 대상이 이미지 & 컨트롤러 UI 아님
+        if (target.tagName === 'IMG' && !target.closest('.fancybox__counter')) {
           fancybox.next();
-       }
-     });
-   },
-   change: (fancybox) => {
-          const counter = document.querySelector(".fancybox__counter");
-          if (counter) {
-            counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
-          }
-        },
-        ready: (fancybox) => {
-          const counter = document.createElement("div");
-          counter.className = "fancybox__counter";
-          counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
-          fancybox.container.appendChild(counter);
         }
+      };
+    },
+    change: (fancybox) => {
+      const counter = document.querySelector(".fancybox__counter");
+      if (counter) {
+        counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
       }
-    });
+    }
+  }
+});
   </script>
 </body>
 </html>

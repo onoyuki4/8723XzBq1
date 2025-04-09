@@ -28,10 +28,9 @@
     Fancybox.bind("[data-fancybox='gallery']", {
       Carousel: { infinite: false },
       on: {
-        done: (fancybox) => {
-          const container = fancybox.$container;
-          container.addEventListener('click', (e) => {
-            if (e.target.tagName === 'IMG' && !fancybox.isLast) {
+        initCarousel: (fancybox) => {
+          fancybox.container.addEventListener('click', (e) => {
+            if (e.target.tagName === 'IMG' && !fancybox.isClosing) {
               fancybox.next();
             }
           });

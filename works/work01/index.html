@@ -55,9 +55,7 @@
           counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
           fancybox.container.appendChild(counter);
 
-          // 전체 영역 클릭 시 다음 이미지
           fancybox.container.onclick = (e) => {
-            // fancybox__counter를 누르면 무시
             if (!e.target.closest('.fancybox__counter')) {
               fancybox.next();
             }

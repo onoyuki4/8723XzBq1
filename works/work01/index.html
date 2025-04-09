@@ -11,6 +11,18 @@
     .info h2 { margin: 0.5rem 0; }
     .images { display: flex; flex-direction: column; gap: 10px; align-items: center; }
     .images img { max-width: 90%; height: auto; border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); }
+    .fancybox__counter {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 9999;
+      font-size: 16px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 12px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -27,27 +39,33 @@
   <script>
     Fancybox.bind("[data-fancybox='gallery']", {
       Carousel: { infinite: false },
-Toolbar: false,
+  Toolbar: false,
   Thumbs: false,
   showClass: false,
   hideClass: false,
   animated: false,
-  compact: true,
   dragToClose: false,
-  template: {
-    caption: () => `
-      <div class="fancybox-caption">
-        <span data-fancybox-current></span> / <span data-fancybox-total></span>
-      </div>
-    `,
-  },
-      on: {
-        initCarousel: (fancybox) => {
-          fancybox.container.addEventListener('click', (e) => {
-            if (e.target.tagName === 'IMG' && !fancybox.isClosing) {
-              fancybox.next();
-            }
-          });
+  on: {
+    initCarousel: (fancybox) => {
+      fancybox.container.addEventListener('click', (e) => {
+       const isImage = e.target.tagName === 'IMG';
+       const isClickingUI = e.target.closest('.fancybox__counter');
+       if (isImage && !isClickingUI && !fancybox.isClosing) {
+          fancybox.next();
+       }
+     });
+   },
+   change: (fancybox) => {
+          const counter = document.querySelector(".fancybox__counter");
+          if (counter) {
+            counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
+          }
+        },
+        ready: (fancybox) => {
+          const counter = document.createElement("div");
+          counter.className = "fancybox__counter";
+          counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
+          fancybox.container.appendChild(counter);
         }
       }
     });

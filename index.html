@@ -63,27 +63,22 @@
     // ========================================
     // === 작품 목록 정의 ===
     // ========================================
-    const worksData = [
-      {
-        id: 'work01',
-        title: 'paofan pixiv collection very long title test overflow ellipsis', // 긴 제목 테스트
-        author: 'paofan',
-        firstImage: '1.jpg'
-      },
-      { // 필터링 테스트용 데이터 추가
-        id: 'work02',
-        title: '두 번째 작품',
-        author: 'Another Author',
-        firstImage: 'alpha.png' // 해당 파일이 works/work02 폴더에 있다고 가정
-      },
-       {
-        id: 'work03',
-        title: '파오판 다른 작품',
-        author: 'paofan', // 동일 작가
-        firstImage: 'beta.jpg' // 해당 파일이 works/work03 폴더에 있다고 가정
-      },
-    ];
-
+      const worksData = [
+    {
+      id: 'work01',
+      title: 'paofan pixiv collection very long title test overflow ellipsis',
+      author: 'paofan',
+      firstImage: '1.jpg'
+    },
+    // === 여기부터 새 작품 정보 추가 ===
+    {
+      id: 'work02',             // 새 폴더명
+      title: '여기에 새 작품 제목 입력', // config.js와 동일하게
+      author: 'wagashi',   // config.js와 동일하게
+      firstImage: `1.${imageExtension}`   // config.js의 첫 이미지 ('1.png')
+    },
+    // === 추가 끝 ===
+  ];
     // ========================================
     // === DOM 요소 선택 ===
     // ========================================

@@ -5,78 +5,68 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Gallery</title>
-  <!-- Fancybox CSS는 메인 페이지에선 필요 없을 수 있으나, 혹시 다른 용도로 쓴다면 유지 -->
-  <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5/dist/fancybox/fancybox.css" /> -->
   <style>
     body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 1rem; }
     h1 { text-align: center; }
     .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; max-width: 1000px; margin: auto; }
     .work { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.2s; }
-    .work a { text-decoration: none; color: inherit; display: block; } /* 링크 스타일 추가 */
+    .work a { text-decoration: none; color: inherit; display: block; }
     .work:hover { transform: scale(1.02); }
-    .work img { width: 100%; height: 250px; /* 고정 높이 또는 비율 유지 */ object-fit: cover; display: block; }
-    .work p { margin: 0; padding: 0.75rem; text-align: center; font-weight: bold; }
+    .work img { width: 100%; height: 250px; object-fit: cover; display: block; }
+    .work p { margin: 0; padding: 0.75rem; text-align: center; font-size: 0.9em; } /* 폰트 크기 조정 */
+    .work .title { font-weight: bold; } /* 제목 굵게 */
+    .work .separator { margin: 0 0.3em; } /* 구분자 스타일 */
+    .work .author { color: #555; } /* 작가 이름 색상 */
   </style>
 </head>
 <body>
-  <h1>📦 나만의 이미지 갤러리</h1>
-  <!-- 갤러리 컨테이너 (JS로 채움) -->
+  <h1>Local Hitomi</h1>
   <div class="gallery" id="gallery-container"></div>
-
-  <!-- Fancybox JS도 필요 없다면 제거 -->
-  <!-- <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5/dist/fancybox/fancybox.umd.js"></script> -->
 
   <script>
     // ========================================
-    // === 작품 목록 정의 ===
+    // === 작품 목록 정의 (작가 정보 추가) ===
     // ========================================
-    // 각 작품의 정보 (폴더명, 제목, 첫 이미지 파일명)
-    // 새 작품 추가 시 이 배열에 객체를 추가하세요.
     const worksData = [
       {
-        id: 'work01',           // 작품 폴더 이름
-        title: '테스트 작품 1', // 작품 제목
-        firstImage: '1.jpg'     // 이 작품의 첫 번째 이미지 파일 이름 (config.js의 첫 항목과 일치)
+        id: 'work01',
+        title: 'paofan pixiv',
+        author: 'paofan',      // 작가 정보 추가
+        firstImage: '1.jpg'
       },
-      // 예시: 다른 작품 추가 시
+      // 예시: 다른 작품 추가
       // {
       //   id: 'work02',
       //   title: '두 번째 작품',
-      //   firstImage: 'cover.png' // work02 폴더의 config.js 첫 항목이 cover.png 라고 가정
+      //   author: 'Another Author',
+      //   firstImage: 'cover.png'
       // },
     ];
 
     // ========================================
-    // === 동적으로 갤러리 생성 ===
+    // === 동적으로 갤러리 생성 (출력 형식 변경) ===
     // ========================================
     const galleryContainer = document.getElementById('gallery-container');
 
     worksData.forEach(work => {
-      // 작품 카드 div 생성
       const workDiv = document.createElement('div');
       workDiv.className = 'work';
 
-      // 작품 링크 생성
       const link = document.createElement('a');
-      link.href = `works/${work.id}/index.html`; // 해당 작품 페이지 링크
+      link.href = `works/${work.id}/index.html`;
 
-      // 썸네일 이미지 생성
       const img = document.createElement('img');
-      // *** 첫 번째 이미지를 썸네일로 사용 ***
       img.src = `works/${work.id}/${work.firstImage}`;
-      img.alt = work.title; // 제목을 alt 텍스트로
-      img.loading = 'lazy'; // 썸네일도 지연 로딩
+      img.alt = `${work.title} / ${work.author}`; // Alt 텍스트에도 반영
+      img.loading = 'lazy';
 
-      // 작품 제목 p 태그 생성
-      const titleP = document.createElement('p');
-      titleP.textContent = work.title;
+      const infoP = document.createElement('p');
+      // *** 제목 / 작가 형식으로 출력 ***
+      infoP.innerHTML = `<span class="title">${work.title}</span><span class="separator">/</span><span class="author">${work.author}</span>`;
 
-      // 요소 조립
       link.appendChild(img);
-      link.appendChild(titleP);
+      link.appendChild(infoP); // 수정된 정보 p 태그 추가
       workDiv.appendChild(link);
-
-      // 갤러리에 추가
       galleryContainer.appendChild(workDiv);
     });
   </script>

@@ -7,68 +7,207 @@
   <title>My Gallery</title>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 1rem; }
-    h1 { text-align: center; }
+    h1 { text-align: center; cursor: pointer; /* 제목 클릭 시 전체 보기 */ }
     .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; max-width: 1000px; margin: auto; }
     .work { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.2s; }
     .work a { text-decoration: none; color: inherit; display: block; }
     .work:hover { transform: scale(1.02); }
-    .work img { width: 100%; height: 250px; object-fit: cover; display: block; }
-    .work p { margin: 0; padding: 0.75rem; text-align: center; font-size: 0.9em; } /* 폰트 크기 조정 */
-    .work .title { font-weight: bold; } /* 제목 굵게 */
-    .work .separator { margin: 0 0.3em; } /* 구분자 스타일 */
-    .work .author { color: #555; } /* 작가 이름 색상 */
+
+    /* --- 정보 영역 (이미지 위) --- */
+    .work .info-top {
+      padding: 0.75rem;
+      text-align: left; /* 왼쪽 정렬 */
+    }
+    .work .title {
+      font-weight: bold;
+      font-size: 0.95em; /* 제목 크기 */
+      display: block; /* 블록 요소로 만들어 줄바꿈 */
+      margin-bottom: 0.25rem; /* 제목과 작가 사이 간격 */
+      /* 긴 제목 처리 */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .work .author {
+      font-size: 0.85em; /* 작가 이름 크기 */
+      color: #555;
+      cursor: pointer; /* 클릭 가능 표시 */
+      display: inline-block; /* 클릭 영역 최소화 */
+    }
+     .work .author:hover {
+      text-decoration: underline; /* 호버 시 밑줄 */
+      color: #007bff;
+    }
+
+    /* --- 썸네일 이미지 --- */
+    .work img {
+      width: 100%;
+      height: 250px;
+      object-fit: cover;
+      display: block;
+      border-top: 1px solid #eee; /* 정보 영역과 구분선 */
+    }
+    /* 필터링 시 안내 메시지 */
+    .filter-info { text-align: center; margin: 1rem 0; font-weight: bold; }
+    .filter-info button { margin-left: 0.5rem; }
+
   </style>
 </head>
 <body>
-  <h1>Local Hitomi</h1>
+  <h1 id="main-title">Local Hitomi</h1>
+  <!-- 필터링 정보 표시 영역 -->
+  <div id="filter-info-container"></div>
   <div class="gallery" id="gallery-container"></div>
 
   <script>
     // ========================================
-    // === 작품 목록 정의 (작가 정보 추가) ===
+    // === 작품 목록 정의 ===
     // ========================================
     const worksData = [
       {
         id: 'work01',
-        title: 'paofan pixiv',
-        author: 'paofan',      // 작가 정보 추가
+        title: 'paofan pixiv collection very long title test overflow ellipsis', // 긴 제목 테스트
+        author: 'paofan',
         firstImage: '1.jpg'
       },
-      // 예시: 다른 작품 추가
-      // {
-      //   id: 'work02',
-      //   title: '두 번째 작품',
-      //   author: 'Another Author',
-      //   firstImage: 'cover.png'
-      // },
+      { // 필터링 테스트용 데이터 추가
+        id: 'work02',
+        title: '두 번째 작품',
+        author: 'Another Author',
+        firstImage: 'alpha.png' // 해당 파일이 works/work02 폴더에 있다고 가정
+      },
+       {
+        id: 'work03',
+        title: '파오판 다른 작품',
+        author: 'paofan', // 동일 작가
+        firstImage: 'beta.jpg' // 해당 파일이 works/work03 폴더에 있다고 가정
+      },
     ];
 
     // ========================================
-    // === 동적으로 갤러리 생성 (출력 형식 변경) ===
+    // === DOM 요소 선택 ===
     // ========================================
     const galleryContainer = document.getElementById('gallery-container');
+    const mainTitle = document.getElementById('main-title');
+    const filterInfoContainer = document.getElementById('filter-info-container');
+    let currentFilter = null; // 현재 필터링 중인 작가 이름 저장
 
-    worksData.forEach(work => {
-      const workDiv = document.createElement('div');
-      workDiv.className = 'work';
+    // ========================================
+    // === 갤러리 렌더링 함수 ===
+    // ========================================
+    function renderGallery(dataToRender) {
+      galleryContainer.innerHTML = ''; // 기존 갤러리 내용 비우기
 
-      const link = document.createElement('a');
-      link.href = `works/${work.id}/index.html`;
+      // 필터링 정보 업데이트
+      updateFilterInfo();
 
-      const img = document.createElement('img');
-      img.src = `works/${work.id}/${work.firstImage}`;
-      img.alt = `${work.title} / ${work.author}`; // Alt 텍스트에도 반영
-      img.loading = 'lazy';
+      if (dataToRender.length === 0) {
+           galleryContainer.innerHTML = '<p style="text-align: center;">해당 작가의 작품이 없습니다.</p>';
+           return;
+      }
 
-      const infoP = document.createElement('p');
-      // *** 제목 / 작가 형식으로 출력 ***
-      infoP.innerHTML = `<span class="title">${work.title}</span><span class="separator">/</span><span class="author">${work.author}</span>`;
+      dataToRender.forEach(work => {
+        const workDiv = document.createElement('div');
+        workDiv.className = 'work';
 
-      link.appendChild(img);
-      link.appendChild(infoP); // 수정된 정보 p 태그 추가
-      workDiv.appendChild(link);
-      galleryContainer.appendChild(workDiv);
-    });
+        const link = document.createElement('a');
+        link.href = `works/${work.id}/index.html`;
+
+        // --- 정보 영역 (이미지 위) ---
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'info-top';
+
+        const titleSpan = document.createElement('span'); // 제목은 span으로 변경 (h3는 너무 큼)
+        titleSpan.className = 'title';
+        titleSpan.textContent = work.title;
+        // titleSpan.title = work.title; // 긴 제목 전체 보기 (툴팁)
+
+        const authorSpan = document.createElement('span'); // 작가도 span으로
+        authorSpan.className = 'author';
+        authorSpan.textContent = work.author;
+        authorSpan.dataset.author = work.author; // data 속성에 작가 이름 저장
+        // *** 작가 이름 클릭 시 필터링 이벤트 추가 ***
+        authorSpan.addEventListener('click', handleAuthorClick);
+
+        infoDiv.appendChild(titleSpan);
+        infoDiv.appendChild(authorSpan);
+        // --- 정보 영역 끝 ---
+
+        const img = document.createElement('img');
+        img.src = `works/${work.id}/${work.firstImage}`;
+        img.alt = `${work.title} / ${work.author}`;
+        img.loading = 'lazy';
+
+        // *** 순서 변경: 정보(infoDiv) -> 이미지(img) ***
+        link.appendChild(infoDiv);
+        link.appendChild(img);
+
+        workDiv.appendChild(link);
+        galleryContainer.appendChild(workDiv);
+      });
+    }
+
+    // ========================================
+    // === 작가 이름 클릭 핸들러 ===
+    // ========================================
+    function handleAuthorClick(event) {
+      event.preventDefault(); // 링크 이동 방지
+      event.stopPropagation(); // 이벤트 버블링 중단
+
+      const authorName = event.target.dataset.author;
+      if (authorName) {
+        filterGalleryByAuthor(authorName);
+      }
+    }
+
+    // ========================================
+    // === 작가별 필터링 함수 ===
+    // ========================================
+    function filterGalleryByAuthor(authorName) {
+      // console.log('Filtering by:', authorName); // 디버깅
+      currentFilter = authorName; // 현재 필터 상태 저장
+      const filteredData = worksData.filter(work => work.author === authorName);
+      renderGallery(filteredData); // 필터링된 데이터로 갤러리 다시 렌더링
+    }
+
+    // ========================================
+    // === 전체 목록 보기 함수 ===
+    // ========================================
+    function showAllWorks() {
+       // console.log('Showing all works'); // 디버깅
+       currentFilter = null; // 필터 상태 해제
+       renderGallery(worksData); // 전체 데이터로 갤러리 다시 렌더링
+    }
+
+     // ========================================
+    // === 필터링 정보 표시 업데이트 ===
+    // ========================================
+    function updateFilterInfo() {
+        filterInfoContainer.innerHTML = ''; // 초기화
+        if (currentFilter) {
+            const infoP = document.createElement('p');
+            infoP.className = 'filter-info';
+            infoP.innerHTML = `<strong>${currentFilter}</strong> 작가 작품만 보는 중`;
+
+            const showAllButton = document.createElement('button');
+            showAllButton.textContent = '전체 보기';
+            showAllButton.onclick = showAllWorks; // 버튼 클릭 시 전체 보기 함수 호출
+
+            infoP.appendChild(showAllButton);
+            filterInfoContainer.appendChild(infoP);
+        }
+    }
+
+
+    // ========================================
+    // === 초기 갤러리 렌더링 및 이벤트 리스너 설정 ===
+    // ========================================
+    // 페이지 로드 시 전체 목록 표시
+    renderGallery(worksData);
+
+    // 메인 제목 클릭 시 전체 목록 보기
+    mainTitle.addEventListener('click', showAllWorks);
+
   </script>
 </body>
 </html>

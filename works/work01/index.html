@@ -3,36 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>테스트 작품 1 (클릭 스킵 수정)</title>
+  <!-- 제목은 작품별로 다르게 할 수 있음 (필요시 config.js에서 가져오도록 확장 가능) -->
+  <title>테스트 작품 1 (동적 로딩)</title>
   <style>
-    /* --- 기본 스타일 --- */
+    /* CSS는 이전과 동일 */
     body { font-family: sans-serif; padding: 1rem; background: #fff; margin: 0; }
     body.fullscreen-active { overflow: hidden; }
-
     .info { text-align: center; margin-bottom: 1rem; }
     .info h2 { margin: 0.5rem 0; }
     .images { display: flex; flex-direction: column; gap: 10px; align-items: center; }
     .images img {
         max-width: 300px; max-height: 400px; width: auto; height: auto;
         border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); cursor: pointer;
+        opacity: 0; transition: opacity 0.5s ease-in-out;
     }
+    .images img[loading="lazy"][src] { opacity: 1; }
     #fullscreen-container { position: relative; }
-
-    /* --- 카운터 --- */
-    .counter-container {
-      position: fixed; top: 10px; right: 10px; z-index: 10002;
-    }
-    .fancybox__counter {
+    .counter-container { position: fixed; top: 10px; right: 10px; z-index: 10002; }
+    .fancybox__counter { /* ... */
       font-size: 16px; background: rgba(0, 0, 0, 0.6); color: #fff;
       padding: 4px 10px; border-radius: 12px; user-select: none;
       cursor: pointer; display: inline-block;
     }
-    .fullscreen-container.jump-ui-active .counter-container {
-        opacity: 0.2; pointer-events: none;
-    }
-
-    /* --- 전체 화면 뷰어 --- */
-    .fullscreen-viewer {
+    .fullscreen-container.jump-ui-active .counter-container { opacity: 0.2; pointer-events: none; }
+    .fullscreen-viewer { /* ... */
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background-color: rgba(0, 0, 0, 0.9); display: flex;
       justify-content: center; align-items: center; z-index: 9999;
@@ -41,22 +35,20 @@
       overflow: hidden;
     }
     .fullscreen-viewer.active { opacity: 1; visibility: visible; }
-    .fullscreen-viewer img {
+    .fullscreen-viewer img { /* ... */
       max-width: 95%; max-height: 95%; object-fit: contain;
       cursor: grab; user-select: none; -webkit-user-drag: none;
       transition: transform 0.2s ease-out;
       touch-action: none;
     }
     .fullscreen-viewer img.dragging { cursor: grabbing; }
-
-    /* --- 페이지 점프 UI (세로 스크롤 목록) --- */
-    .page-jump-overlay {
+    .page-jump-overlay { /* ... */
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background-color: rgba(0, 0, 0, 0.7); display: flex;
       justify-content: center; align-items: center;
       z-index: 10001; cursor: pointer;
     }
-    #page-jump-list {
+    #page-jump-list { /* ... */
       background-color: #333; color: #eee; padding: 10px 0;
       border-radius: 10px; max-height: 70vh; overflow-y: auto;
       display: flex; flex-direction: column; gap: 0px;
@@ -66,8 +58,7 @@
     #page-jump-list::-webkit-scrollbar { width: 6px; }
     #page-jump-list::-webkit-scrollbar-track { background: #333; }
     #page-jump-list::-webkit-scrollbar-thumb { background-color: #666; border-radius: 3px; }
-
-    .page-jump-number {
+    .page-jump-number { /* ... */
       display: flex; align-items: center; justify-content: space-between;
       padding: 12px 15px; cursor: pointer; font-weight: normal;
       text-align: left; transition: background-color 0.2s ease;
@@ -75,68 +66,85 @@
     }
     .page-jump-number:last-child { border-bottom: none; }
     .page-jump-number:hover { background-color: #444; }
-    .page-jump-number::after { /* 라디오 버튼 원 */
+    .page-jump-number::after { /* ... */
       content: ''; display: inline-block; width: 18px; height: 18px;
       border-radius: 50%; border: 2px solid #888; margin-left: 15px;
       position: relative; box-sizing: border-box;
     }
     .page-jump-number.current { font-weight: bold; }
-    .page-jump-number.current::after { /* 현재 페이지 원 */
+    .page-jump-number.current::after { /* ... */
       border-color: #eee; background-color: #eee;
     }
-
   </style>
 </head>
 <body>
   <div class="info">
+    <!-- 제목 등 정보는 필요시 config.js에서 가져와 동적으로 설정 가능 -->
     <h2>테스트 작품 1</h2>
     <p>작가: ChatGPT | 태그: 샘플, 테스트, 갤러리</p>
   </div>
-  <div class="images">
-    <a href="1.jpg" data-index="0"><img src="1.jpg" alt="1" /></a>
-    <a href="2.jpg" data-index="1"><img src="2.jpg" alt="2" /></a>
-    <a href="3.webp" data-index="2"><img src="3.webp" alt="3" /></a>
-    <a href="4.webp" data-index="2"><img src="4.webp" alt="3" /></a>
-    <a href="5.webp" data-index="2"><img src="5.webp" alt="3" /></a>
-  </div>
+  <div class="images"></div> <!-- JS로 채워질 영역 -->
 
   <div id="fullscreen-container"></div>
 
+  <!-- *** config.js 먼저 로드 *** -->
+  <script src="config.js"></script>
+
   <script>
-    const imageLinks = document.querySelectorAll('.images a');
+    // *** config.js의 workImages 사용 ***
+    const imageFiles = workImages;
+
     const fullscreenContainer = document.getElementById('fullscreen-container');
     const bodyElement = document.body;
+    const imagesContainer = document.querySelector('.images');
 
+    function generateThumbnails() {
+        imagesContainer.innerHTML = '';
+        imageFiles.forEach((filename, index) => {
+            const link = document.createElement('a');
+            link.href = filename; // config.js에 정의된 파일명/경로 사용
+            link.dataset.index = index;
+            const img = document.createElement('img');
+            img.src = filename; // config.js에 정의된 파일명/경로 사용
+            img.alt = `Image ${index + 1}`;
+            img.loading = 'lazy';
+            link.appendChild(img);
+            imagesContainer.appendChild(link);
+        });
+    }
+
+    generateThumbnails(); // 썸네일 생성
+
+    // *** 뷰어 로직 시작 (이전 답변의 스크립트와 동일) ***
+    const imageLinks = document.querySelectorAll('.images a'); // 생성된 링크 선택
     let currentIndex = 0;
     let isFullscreen = false;
-    let fullscreenViewer = null;
+    // ... (viewerImage, counterContainer 등 변수 선언 동일) ...
     let viewerImage = null;
     let counterContainer = null;
     let counterElement = null;
     let pageJumpOverlay = null;
-
-    // 스와이프 & 클릭 관련 변수
     let isDragging = false;
+    // ... (스와이프/클릭 변수들 동일) ...
     let startX = 0;
     let currentX = 0;
     let clickStartX = 0;
     let clickStartY = 0;
     let dragStartTime = 0;
     let pointerDown = false;
-    let clickTimeoutId = null; // 클릭 디바운스 타이머 ID
+    let clickTimeoutId = null;
     const swipeThreshold = 50;
-    const clickMoveThreshold = 15; // 클릭 허용 오차 약간 더 늘림
-    const clickTimeThreshold = 300;// 클릭 허용 시간
+    const clickMoveThreshold = 15;
+    const clickTimeThreshold = 250;
     const dragStartThreshold = 5;
-    const clickDebounceTime = 60; // 클릭 처리 지연 시간 (ms)
+    const clickDebounceTime = 60;
 
-    function updateCounter() { /* 이전과 동일 */
+    function updateCounter() { /* imageLinks.length 사용 */
       if (counterElement) {
         counterElement.innerText = `${currentIndex + 1} / ${imageLinks.length}`;
       }
     }
-
-    function showImage(index) { /* 이전과 동일 */
+    function showImage(index) { /* imageLinks.length, imageLinks.item 사용 */
         if (!isFullscreen) return;
         if (index >= 0 && index < imageLinks.length) {
             currentIndex = index;
@@ -150,15 +158,13 @@
             }
         } else { console.warn(`Invalid index: ${index}`); }
     }
-
-    // --- 페이지 점프 UI ---
     function togglePageJumpUI() { /* 이전과 동일 */
         if (!isFullscreen) return;
         if (pageJumpOverlay) { removePageJumpUI(); return; }
         pageJumpOverlay = document.createElement('div');
         pageJumpOverlay.className = 'page-jump-overlay';
         pageJumpOverlay.addEventListener('click', handleOverlayClick);
-        createPageJumpList(pageJumpOverlay);
+        createPageJumpList(pageJumpOverlay); // createPageJumpList 호출
         fullscreenContainer.appendChild(pageJumpOverlay);
         fullscreenContainer.classList.add('jump-ui-active');
         const currentButton = pageJumpOverlay.querySelector(`.page-jump-number.current`);
@@ -167,11 +173,11 @@
     function handleOverlayClick(event) { /* 이전과 동일 */
         if (event.target === pageJumpOverlay) removePageJumpUI();
     }
-    function createPageJumpList(overlay) { /* 이전과 동일 */
+    function createPageJumpList(overlay) { /* imageLinks.length 사용 */
         const listContainer = document.createElement('div');
         listContainer.id = 'page-jump-list';
         listContainer.addEventListener('click', (e) => e.stopPropagation());
-        for (let i = 1; i <= imageLinks.length; i++) {
+        for (let i = 1; i <= imageLinks.length; i++) { /* imageLinks.length 사용 */
             const pageNumElement = document.createElement('div');
             pageNumElement.className = 'page-jump-number';
             pageNumElement.innerHTML = `<span>${i}</span>`;
@@ -191,16 +197,10 @@
         if (pageJumpOverlay) { pageJumpOverlay.remove(); pageJumpOverlay = null; }
         fullscreenContainer.classList.remove('jump-ui-active');
     }
-
-    // --- 스와이프 & 클릭 이벤트 핸들러 ---
-
-    function handlePointerDown(event) {
+    function handlePointerDown(event) { /* 이전과 동일 */
         if (pageJumpOverlay || !viewerImage || pointerDown) return;
         if (event.button && event.button !== 0) return;
-
-        // 이전 클릭 액션 타이머 취소 (빠른 더블탭 방지)
         clearTimeout(clickTimeoutId);
-
         pointerDown = true;
         isDragging = false;
         dragStartTime = Date.now();
@@ -209,15 +209,13 @@
         currentX = startX;
         clickStartX = startX;
         clickStartY = touch ? event.touches[0].clientY : event.clientY;
-
         document.addEventListener('mousemove', handlePointerMove);
         document.addEventListener('touchmove', handlePointerMove, { passive: false });
         document.addEventListener('mouseup', handlePointerUp);
         document.addEventListener('touchend', handlePointerUp);
         document.addEventListener('mouseleave', handlePointerUp);
     }
-
-    function handlePointerMove(event) {
+    function handlePointerMove(event) { /* 이전과 동일 */
         if (!pointerDown) return;
         const currentMoveX = event.type.startsWith('touch') ? event.touches[0].clientX : event.clientX;
         const currentMoveY = event.type.startsWith('touch') ? event.touches[0].clientY : event.clientY;
@@ -238,71 +236,46 @@
             viewerImage.style.transform = `translateX(${diffX}px)`;
         }
     }
-
-    // *** handlePointerUp 로직 수정 - 디바운스 적용 및 명확화 ***
-    function handlePointerUp(event) {
+    function handlePointerUp(event) { /* 이전과 동일 (클릭 우선 처리) */
         if (!pointerDown) return;
-
-        // 상태 업데이트 및 리스너 제거 먼저
         pointerDown = false;
         const wasDragging = isDragging;
         isDragging = false;
-
         document.removeEventListener('mousemove', handlePointerMove);
         document.removeEventListener('touchmove', handlePointerMove);
         document.removeEventListener('mouseup', handlePointerUp);
         document.removeEventListener('touchend', handlePointerUp);
         document.removeEventListener('mouseleave', handlePointerUp);
-
         if (!viewerImage) { return; }
-
         viewerImage.classList.remove('dragging');
         viewerImage.style.transition = '';
-
         const diffX = currentX - startX;
         const dragDuration = Date.now() - dragStartTime;
         const touch = event.type === 'touchend';
-        // touchend나 mouseleave 시 좌표가 없을 수 있으므로 안전하게 처리
         const endX = touch ? (event.changedTouches[0] ? event.changedTouches[0].clientX : currentX) : event.clientX;
-        const endY = touch ? (event.changedTouches[0] ? event.changedTouches[0].clientY : clickStartY) : event.clientY; // Y는 초기값 사용
+        const endY = touch ? (event.changedTouches[0] ? event.changedTouches[0].clientY : clickStartY) : event.clientY;
         const totalMoveX = Math.abs(endX - clickStartX);
         const totalMoveY = Math.abs(endY - clickStartY);
+        viewerImage.style.transform = ''; // 위치 초기화 먼저
 
-        // 기본적으로 이미지 위치 초기화 (아래 로직에서 액션이 없으면 이게 최종 상태)
-        viewerImage.style.transform = '';
-
-        // 1. 스와이프 판정: 드래그 중이었고, X 이동 거리가 임계값 이상
+        // 클릭 판정 우선
+        if (totalMoveX < clickMoveThreshold && totalMoveY < clickMoveThreshold && dragDuration < clickTimeThreshold) {
+            clearTimeout(clickTimeoutId);
+            clickTimeoutId = setTimeout(() => { nextImage(); }, clickDebounceTime);
+            return; // 클릭 처리 후 종료
+        }
+        // 스와이프 판정
         if (wasDragging && Math.abs(diffX) >= swipeThreshold) {
-            // console.log("Action: Swipe", diffX);
-            // 스와이프 액션 전에 이전 클릭 타이머 취소
             clearTimeout(clickTimeoutId);
             if (diffX > 0) { prevImage(); } else { nextImage(); }
-            return; // 스와이프 액션 후 종료
+            return; // 스와이프 처리 후 종료
         }
-
-        // 2. 클릭 판정: 스와이프가 아니었고, 총 이동 거리와 시간이 임계값 이내
-        if (totalMoveX < clickMoveThreshold && totalMoveY < clickMoveThreshold && dragDuration < clickTimeThreshold) {
-            // console.log("Action: Click detected, setting timeout");
-            // 클릭 액션을 바로 실행하지 않고 디바운스 타이머 설정
-            clearTimeout(clickTimeoutId); // 이전 타이머 취소
-            clickTimeoutId = setTimeout(() => {
-                // console.log("Executing debounced click action");
-                nextImage();
-            }, clickDebounceTime); // 설정된 지연 시간 후 실행
-            return; // 타이머 설정 후 종료 (실제 액션은 나중에)
-        }
-
-        // 3. 그 외 (짧은 드래그 등): 아무 액션 없음 (이미지 위치는 위에서 초기화됨)
-        // console.log("Action: Reset Position Only or ignored");
     }
-
-
-    // --- 전체 화면 뷰어 ---
-    function openFullscreen(index) { /* 이전과 동일 */
+    function openFullscreen(index) { /* 이전과 동일, imageLinks 사용 */
       if (isFullscreen) return;
       currentIndex = index;
       isFullscreen = true;
-      const imageUrl = imageLinks.item(currentIndex).getAttribute('href');
+      const imageUrl = imageLinks.item(currentIndex).getAttribute('href'); // imageLinks 사용
       bodyElement.classList.add('fullscreen-active');
       fullscreenViewer = document.createElement('div');
       fullscreenViewer.classList.add('fullscreen-viewer');
@@ -319,24 +292,21 @@
       counterContainer.appendChild(counterElement);
       fullscreenContainer.appendChild(fullscreenViewer);
       fullscreenContainer.appendChild(counterContainer);
-      updateCounter();
+      updateCounter(); // updateCounter 내부에서 imageLinks.length 사용
       document.addEventListener('keydown', handleKeydown);
       requestAnimationFrame(() => fullscreenViewer.classList.add('active'));
     }
-
     function handleViewerClick(event) { /* 이전과 동일 */
         if (!pageJumpOverlay && !isDragging && event.target === fullscreenViewer) {
              closeFullscreen();
         }
     }
-
-    function closeFullscreen() { /* 이전과 동일 */
+    function closeFullscreen() { /* 이전과 동일 - clickTimeoutId 클리어 포함 */
       if (!isFullscreen) return;
       isFullscreen = false;
       removePageJumpUI();
       bodyElement.classList.remove('fullscreen-active');
-      // 클릭 타이머도 취소
-      clearTimeout(clickTimeoutId);
+      clearTimeout(clickTimeoutId); // 타이머 취소
       if (viewerImage) {
           viewerImage.removeEventListener('mousedown', handlePointerDown);
           viewerImage.removeEventListener('touchstart', handlePointerDown);
@@ -352,24 +322,19 @@
           isDragging = false; pointerDown = false;
       }, 300);
     }
-
-    function nextImage() { /* 이전과 동일 */
+    function nextImage() { /* imageLinks.length 사용 */
       if (isFullscreen && !pageJumpOverlay) {
-        // console.log("Next Image Called - Index:", currentIndex);
         showImage((currentIndex + 1) % imageLinks.length);
       }
     }
-    function prevImage() { /* 이전과 동일 */
+    function prevImage() { /* imageLinks.length 사용 */
         if (isFullscreen && !pageJumpOverlay) {
-            // console.log("Prev Image Called - Index:", currentIndex);
             showImage((currentIndex - 1 + imageLinks.length) % imageLinks.length);
         }
     }
-
     function handleKeydown(event) { /* 이전과 동일 */
         if (pageJumpOverlay) {
-            if (event.key === 'Escape') removePageJumpUI();
-            return;
+            if (event.key === 'Escape') removePageJumpUI(); return;
         }
         if (isFullscreen) {
             if (event.key === 'Escape') closeFullscreen();
@@ -378,11 +343,15 @@
         }
     }
 
-    // --- 초기화 ---
-    imageLinks.forEach(link => { /* 이전과 동일 */
+    // --- 초기화: 동적으로 생성된 링크에 이벤트 연결 ---
+    // imageLinks는 위에서 이미 선택되었으므로 바로 사용
+    imageLinks.forEach(link => {
       link.addEventListener('click', function(event) {
         event.preventDefault();
-        openFullscreen(parseInt(this.getAttribute('data-index'), 10));
+        const index = parseInt(this.dataset.index, 10);
+        if (!isNaN(index)) {
+             openFullscreen(index);
+        }
       });
     });
 

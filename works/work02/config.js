@@ -6,12 +6,13 @@ const workAuthor = "wagashi";
 const imageCount = 26; // <<<--- 이미지 총 개수 (1부터 26까지면 26)
 const imageExtension = 'png'; // <<<--- 이미지 확장자 (모두 png면 'png')
 
-// --- 2. 이미지 배열 자동 생성 (수정 불필요) ---
+// --- 2. 이미지 배열 자동 생성 (수정됨) ---
 const imageList = [];
 for (let i = 1; i <= imageCount; i++) {
-  imageList.push(`${i}.${imageExtension}`);
+  // 숫자를 문자열로 변환 후, 길이가 2가 되도록 앞에 '0'을 붙임
+  const paddedIndex = i.toString().padStart(2, '0'); // <<<--- 수정된 부분
+  imageList.push(`${paddedIndex}.${imageExtension}`);
 }
-
 // --- 3. 최종 설정 객체 생성 (수정 불필요) ---
 const workConfig = {
   title: workTitle,

@@ -24,5 +24,16 @@
     <a href="3.webp" data-fancybox="gallery"><img src="3.webp" alt="3" /></a>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5/dist/fancybox/fancybox.umd.js"></script>
+  <script>
+  Fancybox.bind("[data-fancybox='gallery']", {
+    on: {
+      ready: (fancybox) => {
+        fancybox.$container.addEventListener('click', () => {
+          fancybox.next();
+        });
+      }
+    }
+  });
+</script>
 </body>
 </html>

@@ -59,32 +59,15 @@
   <div id="filter-info-container"></div>
   <div class="gallery" id="gallery-container"></div>
 
+  <!-- *** 생성된 작품 목록 파일을 먼저 로드 *** -->
+  <script src="works-list.js"></script>
+
   <script>
     // ========================================
-    // === 작품 목록 정의 ===
+    // === 작품 목록 정의 (이제 works-list.js에서 로드됨) ===
     // ========================================
-      const worksData = [
-    {
-      id: 'work01',
-      title: 'paofan pixiv',
-      author: 'paofan',
-      firstImage: '1.jpg'
-    },
-    // === 여기부터 새 작품 정보 추가 ===
-    {
-      id: 'work02',             // 새 폴더명
-      title: '토라도라! 야한책', // config.js와 동일하게
-      author: 'wagashi',   // config.js와 동일하게
-      firstImage: `01.png`   // config.js의 첫 이미지 ('1.png')
-    },
-    {
-      id: 'work03',             // 새 폴더명
-      title: '토라도라!의 에로책 2', // config.js와 동일하게
-      author: 'wagashi',   // config.js와 동일하게
-      firstImage: `01.png`   // config.js의 첫 이미지 ('1.png')
-    },
-    // === 추가 끝 ===
-  ];
+    // const worksData = [...] // <<<--- 삭제됨!
+
     // ========================================
     // === DOM 요소 선택 ===
     // ========================================
@@ -102,49 +85,62 @@
       // 필터링 정보 업데이트
       updateFilterInfo();
 
-      if (dataToRender.length === 0) {
-           galleryContainer.innerHTML = '<p style="text-align: center;">해당 작가의 작품이 없습니다.</p>';
+      // worksData가 로드되지 않았거나 비어있는 경우 처리
+      if (typeof dataToRender === 'undefined' || !Array.isArray(dataToRender) || dataToRender.length === 0) {
+           const message = (typeof worksData === 'undefined') ? '작품 데이터를 불러올 수 없습니다. 빌드 스크립트를 실행하세요.' : '표시할 작품이 없습니다.';
+           galleryContainer.innerHTML = `<p style="text-align: center;">${message}</p>`;
            return;
       }
 
+
       dataToRender.forEach(work => {
-        const workDiv = document.createElement('div');
-        workDiv.className = 'work';
+        try { // 개별 항목 렌더링 오류 방지
+            const workDiv = document.createElement('div');
+            workDiv.className = 'work';
 
-        const link = document.createElement('a');
-        link.href = `works/${work.id}/index.html`;
+            const link = document.createElement('a');
+            link.href = `works/${work.id}/index.html`;
 
-        // --- 정보 영역 (이미지 위) ---
-        const infoDiv = document.createElement('div');
-        infoDiv.className = 'info-top';
+            // --- 정보 영역 (이미지 위) ---
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'info-top';
 
-        const titleSpan = document.createElement('span'); // 제목은 span으로 변경 (h3는 너무 큼)
-        titleSpan.className = 'title';
-        titleSpan.textContent = work.title;
-        // titleSpan.title = work.title; // 긴 제목 전체 보기 (툴팁)
+            const titleSpan = document.createElement('span');
+            titleSpan.className = 'title';
+            titleSpan.textContent = work.title;
+            titleSpan.title = work.title; // 긴 제목 툴팁
 
-        const authorSpan = document.createElement('span'); // 작가도 span으로
-        authorSpan.className = 'author';
-        authorSpan.textContent = work.author;
-        authorSpan.dataset.author = work.author; // data 속성에 작가 이름 저장
-        // *** 작가 이름 클릭 시 필터링 이벤트 추가 ***
-        authorSpan.addEventListener('click', handleAuthorClick);
+            const authorSpan = document.createElement('span');
+            authorSpan.className = 'author';
+            authorSpan.textContent = work.author;
+            authorSpan.dataset.author = work.author;
+            authorSpan.addEventListener('click', handleAuthorClick);
 
-        infoDiv.appendChild(titleSpan);
-        infoDiv.appendChild(authorSpan);
-        // --- 정보 영역 끝 ---
+            infoDiv.appendChild(titleSpan);
+            infoDiv.appendChild(authorSpan);
+            // --- 정보 영역 끝 ---
 
-        const img = document.createElement('img');
-        img.src = `works/${work.id}/${work.firstImage}`;
-        img.alt = `${work.title} / ${work.author}`;
-        img.loading = 'lazy';
+            const img = document.createElement('img');
+            img.src = `works/${work.id}/${work.firstImage}`;
+            img.alt = `${work.title} / ${work.author}`;
+            img.loading = 'lazy';
+             // 이미지 로드 실패 시 대체 처리 (선택 사항)
+            img.onerror = function() {
+                console.error("Failed to load image:", img.src);
+                // img.alt = `이미지 로드 실패: ${work.title}`;
+                // img.style.display = 'none'; // 또는 대체 이미지 표시
+            };
 
-        // *** 순서 변경: 정보(infoDiv) -> 이미지(img) ***
-        link.appendChild(infoDiv);
-        link.appendChild(img);
 
-        workDiv.appendChild(link);
-        galleryContainer.appendChild(workDiv);
+            // *** 순서 변경: 정보(infoDiv) -> 이미지(img) ***
+            link.appendChild(infoDiv);
+            link.appendChild(img);
+
+            workDiv.appendChild(link);
+            galleryContainer.appendChild(workDiv);
+        } catch (error) {
+             console.error("Error rendering work item:", work, error);
+        }
       });
     }
 
@@ -167,8 +163,13 @@
     function filterGalleryByAuthor(authorName) {
       // console.log('Filtering by:', authorName); // 디버깅
       currentFilter = authorName; // 현재 필터 상태 저장
-      const filteredData = worksData.filter(work => work.author === authorName);
-      renderGallery(filteredData); // 필터링된 데이터로 갤러리 다시 렌더링
+      // worksData가 로드되었는지 확인
+      if (typeof worksData !== 'undefined') {
+          const filteredData = worksData.filter(work => work.author === authorName);
+          renderGallery(filteredData); // 필터링된 데이터로 갤러리 다시 렌더링
+      } else {
+          console.error("Cannot filter: worksData is not defined.");
+      }
     }
 
     // ========================================
@@ -177,7 +178,11 @@
     function showAllWorks() {
        // console.log('Showing all works'); // 디버깅
        currentFilter = null; // 필터 상태 해제
-       renderGallery(worksData); // 전체 데이터로 갤러리 다시 렌더링
+       if (typeof worksData !== 'undefined') {
+            renderGallery(worksData); // 전체 데이터로 갤러리 다시 렌더링
+       } else {
+            console.error("Cannot show all: worksData is not defined.");
+       }
     }
 
      // ========================================
@@ -203,11 +208,24 @@
     // ========================================
     // === 초기 갤러리 렌더링 및 이벤트 리스너 설정 ===
     // ========================================
-    // 페이지 로드 시 전체 목록 표시
-    renderGallery(worksData);
+    // worksData 변수가 works-list.js 로딩 후 사용 가능한지 확인
+    // DOMContentLoaded 이벤트 리스너 안에서 실행하는 것이 더 안전할 수 있음
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof worksData !== 'undefined' && worksData.length >= 0) { // worksData가 빈 배열일 수도 있음
+             renderGallery(worksData); // 페이지 로드 시 전체 목록 표시
+        } else {
+            console.error("worksData is not defined or empty! Make sure works-list.js is loaded and generated correctly.");
+            if (galleryContainer) { // galleryContainer가 있는지 확인
+                galleryContainer.innerHTML = '<p style="text-align: center;">작품 데이터를 불러올 수 없습니다. 빌드 스크립트를 실행하세요.</p>';
+            }
+        }
+        if (mainTitle) { // mainTitle 요소가 있는지 확인 후 이벤트 리스너 추가
+            mainTitle.addEventListener('click', showAllWorks); // 제목 클릭 시 전체 보기
+        } else {
+            console.error("mainTitle element not found!");
+        }
+    });
 
-    // 메인 제목 클릭 시 전체 목록 보기
-    mainTitle.addEventListener('click', showAllWorks);
 
   </script>
 </body>

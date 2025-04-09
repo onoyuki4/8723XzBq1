@@ -3,16 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <!-- 제목은 작품별로 다르게 할 수 있음 (필요시 config.js에서 가져오도록 확장 가능) -->
-  <title>테스트 작품 1 (동적 로딩)</title>
+  <!-- 제목은 JS로 설정 -->
+  <title>작품 뷰어</title>
   <style>
     /* CSS는 이전과 동일 */
     body { font-family: sans-serif; padding: 1rem; background: #fff; margin: 0; }
     body.fullscreen-active { overflow: hidden; }
     .info { text-align: center; margin-bottom: 1rem; }
     .info h2 { margin: 0.5rem 0; }
+    /* 작가 정보 스타일 */
+    .info .author { color: #555; font-size: 0.9em; margin-top: 0.2rem;}
     .images { display: flex; flex-direction: column; gap: 10px; align-items: center; }
-    .images img {
+    .images img { /* ... */
         max-width: 300px; max-height: 400px; width: auto; height: auto;
         border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); cursor: pointer;
         opacity: 0; transition: opacity 0.5s ease-in-out;
@@ -79,9 +81,9 @@
 </head>
 <body>
   <div class="info">
-    <!-- 제목 등 정보는 필요시 config.js에서 가져와 동적으로 설정 가능 -->
-    <h2>테스트 작품 1</h2>
-    <p>작가: ChatGPT | 태그: 샘플, 테스트, 갤러리</p>
+    <!-- *** 제목과 작가 정보가 JS로 채워질 영역 *** -->
+    <h2 id="work-title"></h2>
+    <p class="author" id="work-author"></p>
   </div>
   <div class="images"></div> <!-- JS로 채워질 영역 -->
 
@@ -91,35 +93,44 @@
   <script src="config.js"></script>
 
   <script>
-    // *** config.js의 workImages 사용 ***
-    const imageFiles = workImages;
+    // *** config.js의 workConfig 객체 사용 ***
+    const imageFiles = workConfig.images; // 이미지 목록 가져오기
 
     const fullscreenContainer = document.getElementById('fullscreen-container');
     const bodyElement = document.body;
     const imagesContainer = document.querySelector('.images');
+    const workTitleElement = document.getElementById('work-title');
+    const workAuthorElement = document.getElementById('work-author');
+
+    // === 페이지 정보 설정 ===
+    document.title = workConfig.title; // 브라우저 탭 제목 설정
+    workTitleElement.textContent = workConfig.title; // h2 제목 설정
+    workAuthorElement.textContent = `작가: ${workConfig.author}`; // 작가 정보 설정
 
     function generateThumbnails() {
         imagesContainer.innerHTML = '';
+        // *** imageFiles (workConfig.images) 사용 ***
         imageFiles.forEach((filename, index) => {
             const link = document.createElement('a');
-            link.href = filename; // config.js에 정의된 파일명/경로 사용
+            link.href = filename;
             link.dataset.index = index;
             const img = document.createElement('img');
-            img.src = filename; // config.js에 정의된 파일명/경로 사용
-            img.alt = `Image ${index + 1}`;
+            img.src = filename;
+            img.alt = `${workConfig.title} - Image ${index + 1}`; // Alt 텍스트 개선
             img.loading = 'lazy';
             link.appendChild(img);
             imagesContainer.appendChild(link);
         });
     }
 
-    generateThumbnails(); // 썸네일 생성
+    generateThumbnails();
 
-    // *** 뷰어 로직 시작 (이전 답변의 스크립트와 동일) ***
-    const imageLinks = document.querySelectorAll('.images a'); // 생성된 링크 선택
+    // === 뷰어 로직 시작 (workConfig.images.length 사용하도록 수정) ===
+    const imageLinks = document.querySelectorAll('.images a');
     let currentIndex = 0;
+    // ... (isFullscreen 등 변수 선언 동일) ...
     let isFullscreen = false;
-    // ... (viewerImage, counterContainer 등 변수 선언 동일) ...
+    let fullscreenViewer = null;
     let viewerImage = null;
     let counterContainer = null;
     let counterElement = null;
@@ -139,14 +150,16 @@
     const dragStartThreshold = 5;
     const clickDebounceTime = 60;
 
-    function updateCounter() { /* imageLinks.length 사용 */
+    function updateCounter() {
       if (counterElement) {
-        counterElement.innerText = `${currentIndex + 1} / ${imageLinks.length}`;
+        // *** workConfig.images.length 사용 ***
+        counterElement.innerText = `${currentIndex + 1} / ${workConfig.images.length}`;
       }
     }
-    function showImage(index) { /* imageLinks.length, imageLinks.item 사용 */
+    function showImage(index) {
         if (!isFullscreen) return;
-        if (index >= 0 && index < imageLinks.length) {
+        // *** workConfig.images.length 사용 ***
+        if (index >= 0 && index < workConfig.images.length) {
             currentIndex = index;
             const imageUrl = imageLinks.item(currentIndex).getAttribute('href');
             if (viewerImage) {
@@ -173,11 +186,12 @@
     function handleOverlayClick(event) { /* 이전과 동일 */
         if (event.target === pageJumpOverlay) removePageJumpUI();
     }
-    function createPageJumpList(overlay) { /* imageLinks.length 사용 */
+    function createPageJumpList(overlay) { /* workConfig.images.length 사용 */
         const listContainer = document.createElement('div');
         listContainer.id = 'page-jump-list';
         listContainer.addEventListener('click', (e) => e.stopPropagation());
-        for (let i = 1; i <= imageLinks.length; i++) { /* imageLinks.length 사용 */
+        // *** workConfig.images.length 사용 ***
+        for (let i = 1; i <= workConfig.images.length; i++) {
             const pageNumElement = document.createElement('div');
             pageNumElement.className = 'page-jump-number';
             pageNumElement.innerHTML = `<span>${i}</span>`;
@@ -271,7 +285,7 @@
             return; // 스와이프 처리 후 종료
         }
     }
-    function openFullscreen(index) { /* 이전과 동일, imageLinks 사용 */
+    function openFullscreen(index) { /* imageLinks 사용 */
       if (isFullscreen) return;
       currentIndex = index;
       isFullscreen = true;
@@ -279,7 +293,8 @@
       bodyElement.classList.add('fullscreen-active');
       fullscreenViewer = document.createElement('div');
       fullscreenViewer.classList.add('fullscreen-viewer');
-      fullscreenViewer.innerHTML = `<img src="${imageUrl}" alt="Image ${currentIndex + 1}">`;
+      // *** Alt 텍스트에 workConfig.title 사용 ***
+      fullscreenViewer.innerHTML = `<img src="${imageUrl}" alt="${workConfig.title} - Image ${currentIndex + 1}">`;
       viewerImage = fullscreenViewer.querySelector('img');
       fullscreenViewer.addEventListener('click', handleViewerClick);
       viewerImage.addEventListener('mousedown', handlePointerDown);
@@ -292,7 +307,7 @@
       counterContainer.appendChild(counterElement);
       fullscreenContainer.appendChild(fullscreenViewer);
       fullscreenContainer.appendChild(counterContainer);
-      updateCounter(); // updateCounter 내부에서 imageLinks.length 사용
+      updateCounter(); // updateCounter 내부에서 workConfig.images.length 사용
       document.addEventListener('keydown', handleKeydown);
       requestAnimationFrame(() => fullscreenViewer.classList.add('active'));
     }
@@ -301,12 +316,12 @@
              closeFullscreen();
         }
     }
-    function closeFullscreen() { /* 이전과 동일 - clickTimeoutId 클리어 포함 */
+    function closeFullscreen() { /* 이전과 동일 */
       if (!isFullscreen) return;
       isFullscreen = false;
       removePageJumpUI();
       bodyElement.classList.remove('fullscreen-active');
-      clearTimeout(clickTimeoutId); // 타이머 취소
+      clearTimeout(clickTimeoutId);
       if (viewerImage) {
           viewerImage.removeEventListener('mousedown', handlePointerDown);
           viewerImage.removeEventListener('touchstart', handlePointerDown);
@@ -322,14 +337,15 @@
           isDragging = false; pointerDown = false;
       }, 300);
     }
-    function nextImage() { /* imageLinks.length 사용 */
+    // *** nextImage/prevImage 함수 수정: workConfig.images.length 사용 ***
+    function nextImage() {
       if (isFullscreen && !pageJumpOverlay) {
-        showImage((currentIndex + 1) % imageLinks.length);
+        showImage((currentIndex + 1) % workConfig.images.length);
       }
     }
-    function prevImage() { /* imageLinks.length 사용 */
+    function prevImage() {
         if (isFullscreen && !pageJumpOverlay) {
-            showImage((currentIndex - 1 + imageLinks.length) % imageLinks.length);
+            showImage((currentIndex - 1 + workConfig.images.length) % workConfig.images.length);
         }
     }
     function handleKeydown(event) { /* 이전과 동일 */
@@ -344,7 +360,6 @@
     }
 
     // --- 초기화: 동적으로 생성된 링크에 이벤트 연결 ---
-    // imageLinks는 위에서 이미 선택되었으므로 바로 사용
     imageLinks.forEach(link => {
       link.addEventListener('click', function(event) {
         event.preventDefault();

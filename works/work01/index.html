@@ -2,13 +2,11 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <!-- user-scalable=no 필수! 모바일 확대 방지 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>테스트 작품 1 (세로 점프 + 스와이프 + 클릭 수정)</title>
+  <title>테스트 작품 1 (클릭/점프 수정)</title>
   <style>
     /* --- 기본 스타일 --- */
     body { font-family: sans-serif; padding: 1rem; background: #fff; margin: 0; }
-    /* 뷰어 활성 시 배경 스크롤 방지 */
     body.fullscreen-active { overflow: hidden; }
 
     .info { text-align: center; margin-bottom: 1rem; }
@@ -47,7 +45,6 @@
       max-width: 95%; max-height: 95%; object-fit: contain;
       cursor: grab; user-select: none; -webkit-user-drag: none;
       transition: transform 0.2s ease-out;
-      /* 터치 액션 최적화 (스크롤 등 기본 브라우저 액션 방지) */
       touch-action: none;
     }
     .fullscreen-viewer img.dragging { cursor: grabbing; }
@@ -60,90 +57,55 @@
       z-index: 10001; cursor: pointer;
     }
     #page-jump-list {
-      background-color: #333; /* 어두운 배경 */
-      color: #eee; /* 밝은 글씨 */
-      padding: 10px 0; /* 위아래 패딩, 좌우는 항목에서 */
-      border-radius: 10px;
-      max-height: 70vh; /* 높이 제한 */
-      overflow-y: auto; /* 세로 스크롤 */
-      display: flex;
-      flex-direction: column; /* 세로 방향 */
-      gap: 0px; /* 항목 사이 간격 제거 (테두리로 구분) */
-      cursor: default;
-      width: 200px; /* 목록 너비 고정 */
-      scrollbar-width: thin;
-      scrollbar-color: #666 #333;
+      background-color: #333; color: #eee; padding: 10px 0;
+      border-radius: 10px; max-height: 70vh; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 0px;
+      cursor: default; width: 200px;
+      scrollbar-width: thin; scrollbar-color: #666 #333;
     }
     #page-jump-list::-webkit-scrollbar { width: 6px; }
     #page-jump-list::-webkit-scrollbar-track { background: #333; }
     #page-jump-list::-webkit-scrollbar-thumb { background-color: #666; border-radius: 3px; }
 
     .page-jump-number {
-      display: flex; /* 숫자와 원 정렬 */
-      align-items: center;
-      justify-content: space-between; /* 숫자 왼쪽, 원 오른쪽 */
-      padding: 12px 15px; /* 항목 내부 패딩 */
-      cursor: pointer;
-      font-weight: normal; /* 기본 글꼴 두께 */
-      text-align: left; /* 숫자 왼쪽 정렬 */
-      transition: background-color 0.2s ease;
-      border-bottom: 1px solid #444; /* 항목 구분선 */
-      font-size: 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 15px; cursor: pointer; font-weight: normal;
+      text-align: left; transition: background-color 0.2s ease;
+      border-bottom: 1px solid #444; font-size: 16px;
     }
-    .page-jump-number:last-child {
-        border-bottom: none; /* 마지막 항목 구분선 제거 */
-    }
+    .page-jump-number:last-child { border-bottom: none; }
     .page-jump-number:hover { background-color: #444; }
-
-    /* 라디오 버튼 스타일 원 (가상 요소 사용) */
-    .page-jump-number::after {
-      content: '';
-      display: inline-block;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      border: 2px solid #888; /* 원 테두리 */
-      margin-left: 15px; /* 숫자와의 간격 */
-      position: relative;
-      box-sizing: border-box;
+    .page-jump-number::after { /* 라디오 버튼 원 */
+      content: ''; display: inline-block; width: 18px; height: 18px;
+      border-radius: 50%; border: 2px solid #888; margin-left: 15px;
+      position: relative; box-sizing: border-box;
     }
-    /* 현재 페이지 표시 (채워진 원) */
-    .page-jump-number.current {
-       /* background-color: #444; */ /* 선택 배경색 (선택사항) */
-       font-weight: bold; /* 현재 페이지 굵게 */
-    }
-    .page-jump-number.current::after {
-      border-color: #eee; /* 선택 시 원 테두리 색 */
-      background-color: #eee; /* 원 내부 채우기 */
-      /* 내부 작은 원 (선택사항)
-      box-shadow: inset 0 0 0 4px #333;
-      */
+    .page-jump-number.current { font-weight: bold; }
+    .page-jump-number.current::after { /* 현재 페이지 원 */
+      border-color: #eee; background-color: #eee;
     }
 
   </style>
 </head>
 <body>
-  <!-- body 태그에 클래스 추가/제거 예정 -->
   <div class="info">
     <h2>테스트 작품 1</h2>
     <p>작가: ChatGPT | 태그: 샘플, 테스트, 갤러리</p>
   </div>
   <div class="images">
+    <!-- 실제 이미지 링크만 남김 -->
     <a href="1.jpg" data-index="0"><img src="1.jpg" alt="1" /></a>
     <a href="2.jpg" data-index="1"><img src="2.jpg" alt="2" /></a>
     <a href="3.webp" data-index="2"><img src="3.webp" alt="3" /></a>
-    <!-- 100개 예시 -->
-    <a href="placeholder4.jpg" data-index="3"><img src="placeholder4.jpg" alt="4" /></a>
-    <a href="placeholder5.png" data-index="4"><img src="placeholder5.png" alt="5" /></a>
-    <a href="placeholder100.jpg" data-index="99"><img src="placeholder100.jpg" alt="100" /></a>
   </div>
 
   <div id="fullscreen-container"></div>
 
   <script>
+    // imageLinks는 이제 HTML에 있는 요소만 선택함
     const imageLinks = document.querySelectorAll('.images a');
     const fullscreenContainer = document.getElementById('fullscreen-container');
-    const bodyElement = document.body; // body 요소 참조
+    const bodyElement = document.body;
 
     let currentIndex = 0;
     let isFullscreen = false;
@@ -157,12 +119,13 @@
     let isDragging = false;
     let startX = 0;
     let currentX = 0;
-    let clickStartX = 0; // 클릭 시작 좌표 (클릭 판정용)
-    let clickStartY = 0; // 클릭 시작 좌표 (클릭 판정용)
-    let dragStartTime = 0; // 드래그 시작 시간 (클릭 판정용)
-    const swipeThreshold = 50; // 스와이프로 인정할 최소 X 이동 거리
-    const clickThreshold = 5; // 클릭으로 인정할 최대 이동 거리 (X, Y)
-    const clickTimeThreshold = 250; // 클릭으로 인정할 최대 시간 (ms)
+    let clickStartX = 0;
+    let clickStartY = 0;
+    let dragStartTime = 0;
+    let pointerDown = false; // 포인터(마우스/터치)가 눌렸는지 여부
+    const swipeThreshold = 50;
+    const clickThreshold = 10; // 클릭 허용 오차 약간 늘림
+    const clickTimeThreshold = 300; // 클릭 허용 시간 약간 늘림
 
     function updateCounter() {
       if (counterElement) {
@@ -175,14 +138,10 @@
             currentIndex = index;
             const imageUrl = imageLinks.item(currentIndex).getAttribute('href');
             if (viewerImage) {
-                viewerImage.style.transition = 'none'; // 이미지 교체 중에는 이동 애니메이션 끄기
-                viewerImage.style.transform = '';     // 이전 이동 상태 초기화
-                viewerImage.src = imageUrl;           // 이미지 소스 변경
+                viewerImage.style.transition = 'none';
+                viewerImage.style.transform = '';
+                viewerImage.src = imageUrl;
                 updateCounter();
-                // 이미지 로딩 후 트랜지션 복원 (선택사항)
-                // viewerImage.onload = () => { viewerImage.style.transition = ''; };
-                // viewerImage.onerror = () => { viewerImage.style.transition = ''; }; // 에러 시에도 복원
-                 // 간단하게 setTimeout 사용
                 setTimeout(() => { if(viewerImage) viewerImage.style.transition = ''; }, 50);
             }
         } else {
@@ -200,14 +159,14 @@
         pageJumpOverlay.className = 'page-jump-overlay';
         pageJumpOverlay.addEventListener('click', handleOverlayClick);
 
-        createPageJumpList(pageJumpOverlay); // 세로 목록 생성
+        createPageJumpList(pageJumpOverlay);
 
         fullscreenContainer.appendChild(pageJumpOverlay);
         fullscreenContainer.classList.add('jump-ui-active');
 
         const currentButton = pageJumpOverlay.querySelector(`.page-jump-number.current`);
         if (currentButton) {
-            currentButton.scrollIntoView({ behavior: 'auto', block: 'center' }); // 'smooth' 대신 'auto' or 'instant', block: 'center' 추천
+            currentButton.scrollIntoView({ behavior: 'auto', block: 'center' });
         }
     }
 
@@ -218,13 +177,13 @@
     function createPageJumpList(overlay) {
         const listContainer = document.createElement('div');
         listContainer.id = 'page-jump-list';
-        // 스크롤 컨테이너 자체에서 클릭 이벤트가 닫히지 않도록 막음
         listContainer.addEventListener('click', (e) => e.stopPropagation());
 
+        // imageLinks의 길이에 맞게 동적으로 생성
         for (let i = 1; i <= imageLinks.length; i++) {
-            const pageNumElement = document.createElement('div'); // div로 변경 (flex 정렬 용이)
+            const pageNumElement = document.createElement('div');
             pageNumElement.className = 'page-jump-number';
-            pageNumElement.innerHTML = `<span>${i}</span>`; // 숫자만 span으로 감싸기 (스타일링 용이)
+            pageNumElement.innerHTML = `<span>${i}</span>`;
             pageNumElement.dataset.page = i;
             if (i === currentIndex + 1) pageNumElement.classList.add('current');
             pageNumElement.addEventListener('click', handleJumpNumberClick);
@@ -234,7 +193,6 @@
     }
 
     function handleJumpNumberClick(event) {
-        // event.currentTarget 사용 권장 (이벤트가 부착된 요소)
         const targetPage = parseInt(event.currentTarget.dataset.page, 10);
         showImage(targetPage - 1);
         removePageJumpUI();
@@ -247,69 +205,95 @@
 
     // --- 스와이프 & 클릭 이벤트 핸들러 ---
 
-    function handleSwipeStart(event) {
-        if (pageJumpOverlay || !viewerImage) return;
-        if (event.button && event.button !== 0) return; // 마우스 오른쪽 버튼 무시
+    function handlePointerDown(event) { // mousedown, touchstart 통합
+        if (pageJumpOverlay || !viewerImage || pointerDown) return; // 이미 눌린 상태면 무시
+        if (event.button && event.button !== 0) return;
 
-        isDragging = true; // 드래그 시작 플래그
+        pointerDown = true; // 포인터 눌림 상태 true
+        isDragging = false; // 드래그는 아직 시작 안 함 (move에서 시작)
         dragStartTime = Date.now();
         const touch = event.type.startsWith('touch');
         startX = touch ? event.touches[0].clientX : event.clientX;
         currentX = startX;
-        // 클릭 판정용 시작점 기록
         clickStartX = startX;
         clickStartY = touch ? event.touches[0].clientY : event.clientY;
 
-        viewerImage.classList.add('dragging');
-        viewerImage.style.transition = 'none'; // 드래그 중에는 CSS transition 끄기
+        // move와 up/end 이벤트는 document에 등록하여 화면 어디서든 인식
+        document.addEventListener('mousemove', handlePointerMove);
+        document.addEventListener('touchmove', handlePointerMove, { passive: false });
+        document.addEventListener('mouseup', handlePointerUp);
+        document.addEventListener('touchend', handlePointerUp);
+        document.addEventListener('mouseleave', handlePointerUp); // 마우스가 창 밖으로 나가도 처리
     }
 
-    function handleSwipeMove(event) {
-        if (!isDragging || !viewerImage) return;
+    function handlePointerMove(event) {
+        if (!pointerDown) return; // 포인터가 안 눌렸으면 무시
+
+        // 드래그 시작 판정 (최초 move 시)
+        if (!isDragging) {
+            isDragging = true; // 이제 드래그 중
+            viewerImage.classList.add('dragging');
+            viewerImage.style.transition = 'none'; // 드래그 시작 시 transition 끄기
+        }
 
         currentX = event.type.startsWith('touch') ? event.touches[0].clientX : event.clientX;
         const diffX = currentX - startX;
-
-        // 이미지를 드래그만큼 이동 (시각적 피드백)
-        viewerImage.style.transform = `translateX(${diffX}px)`;
+        viewerImage.style.transform = `translateX(${diffX}px)`; // 시각적 이동
     }
 
-    function handleSwipeEnd(event) {
-        if (!isDragging || !viewerImage) return;
+    function handlePointerUp(event) {
+        if (!pointerDown) return; // 포인터가 안 눌렸으면 무시
 
-        isDragging = false;
-        viewerImage.classList.remove('dragging');
-        viewerImage.style.transition = ''; // CSS transition 복원
+        pointerDown = false; // 포인터 뗌 상태 false
+
+        // 이벤트 리스너 제거 (중요!)
+        document.removeEventListener('mousemove', handlePointerMove);
+        document.removeEventListener('touchmove', handlePointerMove);
+        document.removeEventListener('mouseup', handlePointerUp);
+        document.removeEventListener('touchend', handlePointerUp);
+        document.removeEventListener('mouseleave', handlePointerUp);
+
+        if (viewerImage) { // viewerImage가 아직 존재하는지 확인
+            viewerImage.classList.remove('dragging');
+            viewerImage.style.transition = ''; // transition 복원
+        }
 
         const diffX = currentX - startX;
         const dragDuration = Date.now() - dragStartTime;
 
-        // 클릭 판정용 변수 (스와이프 시작점과 거의 같은지)
-        const touch = event.type.startsWith('touch');
-        // touchend 이벤트에는 changedTouches 사용
+        // touchend 이벤트의 좌표는 changedTouches 사용
+        const touch = event.type === 'touchend'; // touchend 인지 확인
         const endX = touch ? event.changedTouches[0].clientX : event.clientX;
         const endY = touch ? event.changedTouches[0].clientY : event.clientY;
         const clickDiffX = Math.abs(endX - clickStartX);
         const clickDiffY = Math.abs(endY - clickStartY);
 
-        // 1. 스와이프 판정 (충분히 길게 드래그)
-        if (Math.abs(diffX) >= swipeThreshold) {
-            if (diffX > 0) { // 오른쪽 스와이프 -> 이전
-                prevImage();
-            } else { // 왼쪽 스와이프 -> 다음
-                nextImage();
-            }
+        // 동작 판정
+        // 1. 스와이프: 드래그 중이었고, 이동 거리가 임계값 이상
+        if (isDragging && Math.abs(diffX) >= swipeThreshold) {
+            if (diffX > 0) { prevImage(); } else { nextImage(); }
         }
-        // 2. 클릭 판정 (짧게, 빠르게 탭)
+        // 2. 클릭: 드래그하지 않았거나(아주 짧은 드래그), 이동거리/시간이 임계값 이내
         else if (clickDiffX < clickThreshold && clickDiffY < clickThreshold && dragDuration < clickTimeThreshold) {
-             nextImage(); // 클릭 시 다음 이미지
-             viewerImage.style.transform = ''; // 혹시 약간 움직였으면 원위치
+             // isDragging이 false 이거나 아주 짧은 경우만 클릭으로 간주
+            if (!isDragging || dragDuration < 100) { // 드래그 시간이 매우 짧으면 클릭으로 간주
+                 nextImage(); // 클릭 시 다음 이미지
+                 if (viewerImage) viewerImage.style.transform = ''; // 원위치
+            } else {
+                 // 짧은 드래그는 원위치만
+                 if (viewerImage) viewerImage.style.transform = '';
+            }
+
         }
-        // 3. 짧은 드래그 (스와이프도 클릭도 아님) -> 원위치
+        // 3. 그 외 (스와이프 threshold 미만의 드래그)
         else {
-            viewerImage.style.transform = '';
+            if (viewerImage) viewerImage.style.transform = ''; // 원위치
         }
+
+        // 액션 후 상태 초기화
+        isDragging = false;
     }
+
 
     // --- 전체 화면 뷰어 ---
 
@@ -319,7 +303,6 @@
       isFullscreen = true;
       const imageUrl = imageLinks.item(currentIndex).getAttribute('href');
 
-      // body에 클래스 추가 (배경 스크롤 방지)
       bodyElement.classList.add('fullscreen-active');
 
       fullscreenViewer = document.createElement('div');
@@ -329,14 +312,11 @@
 
       // 이벤트 리스너
       fullscreenViewer.addEventListener('click', handleViewerClick); // 배경 클릭
-      viewerImage.addEventListener('mousedown', handleSwipeStart);
-      viewerImage.addEventListener('touchstart', handleSwipeStart, { passive: false }); // passive: false로 변경 (touch-action과 함께 스크롤 방지 강화)
-      document.addEventListener('mousemove', handleSwipeMove);
-      document.addEventListener('touchmove', handleSwipeMove, { passive: false }); // passive: false로 변경
-      document.addEventListener('mouseup', handleSwipeEnd);
-      document.addEventListener('touchend', handleSwipeEnd);
-      document.addEventListener('mouseleave', handleSwipeEnd); // 창 벗어나면 종료
+      // 이미지에 통합된 포인터 이벤트 리스너 추가
+      viewerImage.addEventListener('mousedown', handlePointerDown);
+      viewerImage.addEventListener('touchstart', handlePointerDown, { passive: false });
 
+      // 카운터 생성 및 설정
       counterContainer = document.createElement('div');
       counterContainer.className = 'counter-container';
       counterElement = document.createElement("div");
@@ -353,10 +333,9 @@
       requestAnimationFrame(() => fullscreenViewer.classList.add('active'));
     }
 
-    // 뷰어 배경 클릭 처리
     function handleViewerClick(event) {
-        if (pageJumpOverlay || isDragging) return; // 점프 UI 열려있거나 드래그 중이면 무시
-        if (event.target === fullscreenViewer) { // 배경 클릭 시 닫기
+        // 배경 클릭 시 닫기 (점프 UI 열려있거나 드래그 중 아닐 때)
+        if (!pageJumpOverlay && !isDragging && event.target === fullscreenViewer) {
              closeFullscreen();
         }
     }
@@ -365,21 +344,21 @@
       if (!isFullscreen) return;
       isFullscreen = false;
       removePageJumpUI();
-
-      // body 클래스 제거 (배경 스크롤 복원)
       bodyElement.classList.remove('fullscreen-active');
 
-      // 이벤트 리스너 제거
-      if (fullscreenViewer) fullscreenViewer.removeEventListener('click', handleViewerClick);
+      // 통합 포인터 리스너 제거
       if (viewerImage) {
-          viewerImage.removeEventListener('mousedown', handleSwipeStart);
-          viewerImage.removeEventListener('touchstart', handleSwipeStart);
+          viewerImage.removeEventListener('mousedown', handlePointerDown);
+          viewerImage.removeEventListener('touchstart', handlePointerDown);
       }
-      document.removeEventListener('mousemove', handleSwipeMove);
-      document.removeEventListener('touchmove', handleSwipeMove);
-      document.removeEventListener('mouseup', handleSwipeEnd);
-      document.removeEventListener('touchend', handleSwipeEnd);
-      document.removeEventListener('mouseleave', handleSwipeEnd);
+      // document에 등록했던 move/up 이벤트 리스너 제거 (handlePointerUp에서 처리)
+      document.removeEventListener('mousemove', handlePointerMove);
+      document.removeEventListener('touchmove', handlePointerMove);
+      document.removeEventListener('mouseup', handlePointerUp);
+      document.removeEventListener('touchend', handlePointerUp);
+      document.removeEventListener('mouseleave', handlePointerUp);
+
+      if (fullscreenViewer) fullscreenViewer.removeEventListener('click', handleViewerClick);
       if (counterElement) counterElement.removeEventListener('click', togglePageJumpUI);
       document.removeEventListener('keydown', handleKeydown);
 
@@ -389,18 +368,19 @@
           fullscreenContainer.innerHTML = '';
           fullscreenViewer = null; viewerImage = null; counterContainer = null;
           counterElement = null; pageJumpOverlay = null;
-          isDragging = false; dragStartTime = 0; // 상태 초기화
+          isDragging = false; pointerDown = false; // 상태 초기화
       }, 300);
     }
 
-    // next/prev 함수는 스와이프/클릭 핸들러에서 호출됨
     function nextImage() {
       if (isFullscreen && !pageJumpOverlay) {
+        // console.log("Next Image Called"); // 디버깅용
         showImage((currentIndex + 1) % imageLinks.length);
       }
     }
     function prevImage() {
         if (isFullscreen && !pageJumpOverlay) {
+            // console.log("Prev Image Called"); // 디버깅용
             showImage((currentIndex - 1 + imageLinks.length) % imageLinks.length);
         }
     }
@@ -425,21 +405,8 @@
       });
     });
 
-    // --- 임시 이미지 생성 (테스트용) ---
-    function createPlaceholderImage(index, color) { /* ... 이전과 동일 ... */
-        const canvas = document.createElement('canvas'); canvas.width = 600; canvas.height = 800; const ctx = canvas.getContext('2d');
-        ctx.fillStyle = color; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = 'white'; ctx.font = 'bold 48px sans-serif';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(`Image ${index + 1}`, canvas.width / 2, canvas.height / 2); return canvas.toDataURL();
-    }
-    const totalImages = imageLinks.length;
-    const colors = ['#FF6347', '#4682B4', '#32CD32', '#FFD700', '#6A5ACD', '#FF8C00', '#8A2BE2', '#00CED1', '#DC143C', '#B8860B'];
-    imageLinks.forEach(link => {
-        const imgElement = link.querySelector('img'); const imgIndex = parseInt(link.getAttribute('data-index'), 10);
-        const color = colors[imgIndex % colors.length]; const placeholderSrc = createPlaceholderImage(imgIndex, color);
-        if (!imgElement.hasAttribute('src') || imgElement.getAttribute('src').startsWith('placeholder')) { imgElement.src = placeholderSrc; }
-        if (!link.hasAttribute('href') || link.getAttribute('href').startsWith('placeholder')) { link.href = placeholderSrc; }
-    });
-    // --- 임시 이미지 생성 끝 ---
+    // --- 임시 이미지 생성 코드 제거 ---
+    // 이제 HTML에 있는 실제 이미지 링크만 사용합니다.
 
   </script>
 </body>

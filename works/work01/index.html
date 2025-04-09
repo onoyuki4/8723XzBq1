@@ -25,15 +25,19 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5/dist/fancybox/fancybox.umd.js"></script>
   <script>
-    Fancybox.bind("[data-fancybox='gallery']", {
-      on: {
-        ready: (fancybox) => {
-          const container = fancybox.$container;
+   Fancybox.bind("[data-fancybox='gallery']", {
+  on: {
+    ready: (fancybox) => {
+      const container = fancybox.$container;
+      console.log('Fancybox ready!', fancybox);
 
-          ['click', 'touchend'].forEach(eventType => {
-            container.addEventListener(eventType, (e) => {
-              if (e.target.tagName === 'IMG') {
-                fancybox.next();
+      ['click', 'touchend'].forEach(eventType => {
+        container.addEventListener(eventType, (e) => {
+          console.log('Clicked!', e.target);
+
+          if (e.target.tagName === 'IMG') {
+            console.log('Going next!');
+            fancybox.next();
               }
             });
           });

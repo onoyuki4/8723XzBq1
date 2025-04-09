@@ -27,6 +27,20 @@
   <script>
     Fancybox.bind("[data-fancybox='gallery']", {
       Carousel: { infinite: false },
+Toolbar: false,
+  Thumbs: false,
+  showClass: false,
+  hideClass: false,
+  animated: false,
+  compact: true,
+  dragToClose: false,
+  template: {
+    caption: () => `
+      <div class="fancybox-caption">
+        <span data-fancybox-current></span> / <span data-fancybox-total></span>
+      </div>
+    `,
+  },
       on: {
         initCarousel: (fancybox) => {
           fancybox.container.addEventListener('click', (e) => {

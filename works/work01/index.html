@@ -45,27 +45,29 @@
   showClass: false,
   hideClass: false,
   animated: false,
-    on: {
-    ready: (fancybox) => {
+  on: {
+  ready: (fancybox) => {
+    if (!fancybox.container.querySelector('.fancybox__counter')) {
       const counter = document.createElement("div");
       counter.className = "fancybox__counter";
       counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
       fancybox.container.appendChild(counter);
-      fancybox.container.onclick = (e) => {
-        const target = e.target;
-        if (target.tagName === 'IMG' && !target.closest('.fancybox__counter')) {
-          fancybox.next();
-        }
-      };
-    },
-    change: (fancybox) => {
-      const counter = document.querySelector(".fancybox__counter");
-      if (counter) {
-        counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
+    }
+
+    fancybox.container.onclick = (e) => {
+      const target = e.target;
+      if (target.closest('img') && !target.closest('.fancybox__counter')) {
+        fancybox.next();
       }
+    };
+  },
+  change: (fancybox) => {
+    const counter = document.querySelector(".fancybox__counter");
+    if (counter) {
+      counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
     }
   }
-});
+}
   </script>
 </body>
 </html>

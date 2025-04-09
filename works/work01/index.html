@@ -4,26 +4,61 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>테스트 작품 1</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5/dist/fancybox/fancybox.css" />
   <style>
-    body { font-family: sans-serif; padding: 1rem; background: #fff; }
+    body { font-family: sans-serif; padding: 1rem; background: #fff; margin: 0; } /* margin: 0 추가 */
     .info { text-align: center; margin-bottom: 1rem; }
     .info h2 { margin: 0.5rem 0; }
     .images { display: flex; flex-direction: column; gap: 10px; align-items: center; }
-    .images img { max-width: 90%; height: auto; border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); }
+    /* 썸네일 이미지 크기 조정 (필요에 따라 수정) */
+    .images img {
+        max-width: 300px; /* 목록 이미지 최대 너비 제한 */
+        max-height: 400px; /* 목록 이미지 최대 높이 제한 */
+        width: auto;       /* 너비는 비율에 맞게 자동 조정 */
+        height: auto;      /* 높이는 비율에 맞게 자동 조정 */
+        border-radius: 8px;
+        box-shadow: 0 0 8px rgba(0,0,0,0.1);
+        cursor: pointer;
+    }
 
-    .fancybox__counter {
-      position: absolute;
+    .fancybox__counter { /* 카운터 스타일은 그대로 유지 */
+      position: fixed; /* fixed로 변경하여 스크롤과 무관하게 위치 고정 */
       top: 10px;
       right: 10px;
-      z-index: 9999;
+      z-index: 10000; /* fullscreen-viewer보다 위에 오도록 z-index 조정 */
       font-size: 16px;
       background: rgba(0, 0, 0, 0.6);
       color: #fff;
       padding: 4px 10px;
       border-radius: 12px;
-      cursor: pointer;
       user-select: none;
+    }
+
+    .fullscreen-viewer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.9); /* 어두운 배경 */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      cursor: pointer; /* 다음 이미지 이동을 위한 커서 */
+      opacity: 0; /* 초기 상태는 투명 */
+      visibility: hidden; /* 초기 상태는 숨김 */
+      transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out; /* 부드러운 전환 효과 */
+    }
+
+    .fullscreen-viewer.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .fullscreen-viewer img {
+      max-width: 95%; /* 화면 너비의 95% */
+      max-height: 95%; /* 화면 높이의 95% */
+      object-fit: contain; /* 이미지 비율 유지 */
     }
   </style>
 </head>
@@ -33,41 +68,131 @@
     <p>작가: ChatGPT | 태그: 샘플, 테스트, 갤러리</p>
   </div>
   <div class="images">
-    <a href="1.jpg" data-fancybox="gallery"><img src="1.jpg" alt="1" /></a>
-    <a href="2.jpg" data-fancybox="gallery"><img src="2.jpg" alt="2" /></a>
-    <a href="3.webp" data-fancybox="gallery"><img src="3.webp" alt="3" /></a>
+    <!-- data-index는 0부터 시작합니다 -->
+    <a href="1.jpg" data-index="0"><img src="1.jpg" alt="1" /></a>
+    <a href="2.jpg" data-index="1"><img src="2.jpg" alt="2" /></a>
+    <a href="3.webp" data-index="2"><img src="3.webp" alt="3" /></a>
+    <!-- 이미지를 더 추가하려면 위와 같은 형식으로 추가하고 data-index를 순서대로 증가시키세요 -->
+    <!-- 예: <a href="4.png" data-index="3"><img src="4.png" alt="4" /></a> -->
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5/dist/fancybox/fancybox.umd.js"></script>
-  <script>
-    Fancybox.bind("[data-fancybox='gallery']", {
-      Carousel: { infinite: false },
-      Toolbar: false,
-      Thumbs: false,
-      dragToClose: false,
-      showClass: false,
-      hideClass: false,
-      animated: false,
-      on: {
-        ready: (fancybox) => {
-          const counter = document.createElement("div");
-          counter.className = "fancybox__counter";
-          counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
-          fancybox.container.appendChild(counter);
+  <!-- 전체 화면 뷰어와 카운터를 위한 컨테이너 (초기에는 비어 있음) -->
+  <div id="fullscreen-container"></div>
 
-          fancybox.container.onclick = (e) => {
-            if (!e.target.closest('.fancybox__counter')) {
-              fancybox.next();
-            }
-          };
-        },
-        change: (fancybox) => {
-          const counter = document.querySelector(".fancybox__counter");
-          if (counter) {
-            counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
-          }
+  <script>
+    const imageLinks = document.querySelectorAll('.images a');
+    const fullscreenContainer = document.getElementById('fullscreen-container');
+    let currentIndex = 0;
+    let isFullscreen = false;
+    let fullscreenViewer = null;
+    let counterElement = null;
+
+    function updateCounter() {
+      if (counterElement) {
+        counterElement.innerText = `${currentIndex + 1} / ${imageLinks.length}`;
+      }
+    }
+
+    function showImage(index) {
+        currentIndex = index;
+        const imageUrl = imageLinks.item(currentIndex).getAttribute('href');
+        if (fullscreenViewer) {
+            fullscreenViewer.querySelector('img').src = imageUrl;
+            updateCounter();
+        }
+    }
+
+    function openFullscreen(index) {
+      if (isFullscreen) return; // 이미 열려있으면 중복 실행 방지
+
+      currentIndex = index;
+      isFullscreen = true;
+      const imageUrl = imageLinks.item(currentIndex).getAttribute('href');
+
+      // 전체 화면 뷰어 요소 생성
+      fullscreenViewer = document.createElement('div');
+      fullscreenViewer.classList.add('fullscreen-viewer');
+      fullscreenViewer.innerHTML = `<img src="${imageUrl}" alt="Image ${currentIndex + 1}">`;
+
+      // 카운터 요소 생성
+      counterElement = document.createElement("div");
+      counterElement.className = "fancybox__counter"; // 기존 CSS 클래스 재활용
+
+      // 컨테이너에 뷰어와 카운터 추가
+      fullscreenContainer.appendChild(fullscreenViewer);
+      fullscreenContainer.appendChild(counterElement); // 카운터는 뷰어 밖에 추가해야 z-index 적용 용이
+
+      updateCounter(); // 카운터 초기 텍스트 설정
+
+      // 클릭 이벤트 리스너 추가 (뷰어 자체에 추가)
+      fullscreenViewer.addEventListener('click', nextImage);
+      // 키보드 이벤트 리스너 추가
+      document.addEventListener('keydown', handleKeydown);
+
+      // 부드러운 등장을 위해 약간의 딜레이 후 active 클래스 추가
+      requestAnimationFrame(() => {
+          fullscreenViewer.classList.add('active');
+      });
+    }
+
+    function closeFullscreen() {
+      if (!isFullscreen) return; // 열려있지 않으면 실행 방지
+
+      isFullscreen = false;
+
+      // 클릭 및 키보드 이벤트 리스너 제거
+      if (fullscreenViewer) {
+        fullscreenViewer.removeEventListener('click', nextImage);
+      }
+      document.removeEventListener('keydown', handleKeydown);
+
+       // 부드러운 퇴장을 위해 active 클래스 제거
+      if(fullscreenViewer){
+          fullscreenViewer.classList.remove('active');
+      }
+
+      // 트랜지션 완료 후 요소 제거
+      // transition 시간이 0.3s 이므로 300ms 후 제거
+      setTimeout(() => {
+          fullscreenContainer.innerHTML = ''; // 컨테이너 내용 비우기
+          fullscreenViewer = null;
+          counterElement = null;
+      }, 300);
+    }
+
+    function nextImage() {
+      if (isFullscreen) {
+        const nextIndex = (currentIndex + 1) % imageLinks.length;
+        showImage(nextIndex);
+      }
+    }
+
+    function prevImage() {
+        if (isFullscreen) {
+            const prevIndex = (currentIndex - 1 + imageLinks.length) % imageLinks.length;
+            showImage(prevIndex);
+        }
+    }
+
+    function handleKeydown(event) {
+      if (isFullscreen) {
+        if (event.key === 'Escape') {
+          closeFullscreen();
+        } else if (event.key === 'ArrowRight' || event.key === ' ') { // 스페이스바로도 다음 이미지
+          nextImage();
+        } else if (event.key === 'ArrowLeft') {
+          prevImage();
         }
       }
+    }
+
+    // 초기 이미지 링크들에 클릭 이벤트 리스너 설정
+    imageLinks.forEach(link => {
+      link.addEventListener('click', function(event) {
+        event.preventDefault(); // 링크 기본 동작(페이지 이동) 방지
+        const index = parseInt(this.getAttribute('data-index'), 10);
+        openFullscreen(index);
+      });
     });
   </script>
 </body>

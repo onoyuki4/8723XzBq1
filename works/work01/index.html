@@ -1,3 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>테스트 작품 1 (클릭/점프 수정)</title>
+  <style>
+    /* --- 기본 스타일 --- */
+    body { font-family: sans-serif; padding: 1rem; background: #fff; margin: 0; }
+    body.fullscreen-active { overflow: hidden; }
+
+    .info { text-align: center; margin-bottom: 1rem; }
+    .info h2 { margin: 0.5rem 0; }
+    .images { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+    .images img {
+        max-width: 300px; max-height: 400px; width: auto; height: auto;
+        border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); cursor: pointer;
+    }
+    #fullscreen-container { position: relative; }
+
+    /* --- 카운터 --- */
+    .counter-container {
+      position: fixed; top: 10px; right: 10px; z-index: 10002;
+    }
+    .fancybox__counter {
+      font-size: 16px; background: rgba(0, 0, 0, 0.6); color: #fff;
+      padding: 4px 10px; border-radius: 12px; user-select: none;
+      cursor: pointer; display: inline-block;
+    }
+    .fullscreen-container.jump-ui-active .counter-container {
+        opacity: 0.2; pointer-events: none;
+    }
+
+    /* --- 전체 화면 뷰어 --- */
+    .fullscreen-viewer {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background-color: rgba(0, 0, 0, 0.9); display: flex;
+      justify-content: center; align-items: center; z-index: 9999;
+      opacity: 0; visibility: hidden;
+      transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+      overflow: hidden;
+    }
+    .fullscreen-viewer.active { opacity: 1; visibility: visible; }
+    .fullscreen-viewer img {
+      max-width: 95%; max-height: 95%; object-fit: contain;
+      cursor: grab; user-select: none; -webkit-user-drag: none;
+      transition: transform 0.2s ease-out;
+      touch-action: none;
+    }
+    .fullscreen-viewer img.dragging { cursor: grabbing; }
+
+    /* --- 페이지 점프 UI (세로 스크롤 목록) --- */
+    .page-jump-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background-color: rgba(0, 0, 0, 0.7); display: flex;
+      justify-content: center; align-items: center;
+      z-index: 10001; cursor: pointer;
+    }
+    #page-jump-list {
+      background-color: #333; color: #eee; padding: 10px 0;
+      border-radius: 10px; max-height: 70vh; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 0px;
+      cursor: default; width: 200px;
+      scrollbar-width: thin; scrollbar-color: #666 #333;
+    }
+    #page-jump-list::-webkit-scrollbar { width: 6px; }
+    #page-jump-list::-webkit-scrollbar-track { background: #333; }
+    #page-jump-list::-webkit-scrollbar-thumb { background-color: #666; border-radius: 3px; }
+
+    .page-jump-number {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 15px; cursor: pointer; font-weight: normal;
+      text-align: left; transition: background-color 0.2s ease;
+      border-bottom: 1px solid #444; font-size: 16px;
+    }
+    .page-jump-number:last-child { border-bottom: none; }
+    .page-jump-number:hover { background-color: #444; }
+    .page-jump-number::after { /* 라디오 버튼 원 */
+      content: ''; display: inline-block; width: 18px; height: 18px;
+      border-radius: 50%; border: 2px solid #888; margin-left: 15px;
+      position: relative; box-sizing: border-box;
+    }
+    .page-jump-number.current { font-weight: bold; }
+    .page-jump-number.current::after { /* 현재 페이지 원 */
+      border-color: #eee; background-color: #eee;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="info">
+    <h2>테스트 작품 1</h2>
+    <p>작가: ChatGPT | 태그: 샘플, 테스트, 갤러리</p>
+  </div>
+  <div class="images">
+    <!-- 실제 이미지 링크만 남김 -->
+    <a href="1.jpg" data-index="0"><img src="1.jpg" alt="1" /></a>
+    <a href="2.jpg" data-index="1"><img src="2.jpg" alt="2" /></a>
+    <a href="3.webp" data-index="2"><img src="3.webp" alt="3" /></a>
+  </div>
+
+  <div id="fullscreen-container"></div>
+
+  <script>
+    // imageLinks는 이제 HTML에 있는 요소만 선택함
     const imageLinks = document.querySelectorAll('.images a');
     const fullscreenContainer = document.getElementById('fullscreen-container');
     const bodyElement = document.body;
@@ -17,7 +122,7 @@
     let clickStartX = 0; // 드래그 시작 시점 X (클릭 판정용)
     let clickStartY = 0; // 드래그 시작 시점 Y (클릭 판정용)
     let dragStartTime = 0;
-    let pointerDown = false;
+    let pointerDown = false; // 포인터(마우스/터치)가 눌렸는지 여부
     const swipeThreshold = 50;  // 스와이프로 인정할 최소 X 이동 거리
     const clickMoveThreshold = 10; // 클릭으로 인정할 최대 이동 거리 (X, Y)
     const clickTimeThreshold = 250;// 클릭으로 인정할 최대 시간 (ms)
@@ -30,7 +135,7 @@
     }
 
     function showImage(index) {
-        if (!isFullscreen) return;
+        if (!isFullscreen) return; // 뷰어가 닫힌 후 호출 방지
         if (index >= 0 && index < imageLinks.length) {
             currentIndex = index;
             const imageUrl = imageLinks.item(currentIndex).getAttribute('href');
@@ -39,6 +144,7 @@
                 viewerImage.style.transform = '';
                 viewerImage.src = imageUrl;
                 updateCounter();
+                // 이미지 로딩 후 트랜지션 복원 (필수는 아님)
                 setTimeout(() => { if(viewerImage) viewerImage.style.transition = ''; }, 50);
             }
         } else {
@@ -142,14 +248,18 @@
     function handlePointerUp(event) {
         if (!pointerDown) return;
 
+        // 상태 업데이트 및 리스너 제거 먼저!
         pointerDown = false;
+        const wasDragging = isDragging; // 드래그 중이었는지 기록
+        isDragging = false; // isDragging 상태 초기화
+
         document.removeEventListener('mousemove', handlePointerMove);
         document.removeEventListener('touchmove', handlePointerMove);
         document.removeEventListener('mouseup', handlePointerUp);
         document.removeEventListener('touchend', handlePointerUp);
         document.removeEventListener('mouseleave', handlePointerUp);
 
-        if (!viewerImage) { isDragging = false; return; } // 뷰어 없으면 종료
+        if (!viewerImage) { return; } // 뷰어 없으면 종료
 
         viewerImage.classList.remove('dragging');
         viewerImage.style.transition = '';
@@ -159,7 +269,6 @@
 
         // 최종 좌표 (클릭 판정용)
         const touch = event.type === 'touchend';
-        // touchend의 경우 changedTouches 사용, mouseup은 clientX/Y 사용
         const endX = touch ? (event.changedTouches[0] ? event.changedTouches[0].clientX : clickStartX) : event.clientX;
         const endY = touch ? (event.changedTouches[0] ? event.changedTouches[0].clientY : clickStartY) : event.clientY;
         const totalMoveX = Math.abs(endX - clickStartX); // 총 이동 거리 X
@@ -167,19 +276,18 @@
 
         let actionTaken = false;
 
-        // 1. 스와이프 판정: isDragging이 true였고, X 이동 거리가 임계값 이상
-        if (isDragging && Math.abs(diffX) >= swipeThreshold) {
+        // 1. 스와이프 판정: 드래그 중이었고(wasDragging=true), X 이동 거리가 임계값 이상
+        if (wasDragging && Math.abs(diffX) >= swipeThreshold) {
             // console.log("Action: Swipe", diffX);
             if (diffX > 0) { prevImage(); } else { nextImage(); }
             actionTaken = true;
         }
         // 2. 클릭 판정: 스와이프가 아니었고, 총 이동 거리와 시간이 임계값 이내
-        //    (isDragging이 false였거나, true였어도 스와이프 기준 미달 + 클릭 기준 충족)
         else if (!actionTaken && totalMoveX < clickMoveThreshold && totalMoveY < clickMoveThreshold && dragDuration < clickTimeThreshold) {
-            // console.log("Action: Click");
-            nextImage(); // 클릭 시 다음 이미지
-            actionTaken = true;
-            if (viewerImage) viewerImage.style.transform = ''; // 이미지 원위치
+             // console.log("Action: Click");
+             nextImage(); // 클릭 시 다음 이미지
+             actionTaken = true;
+             if (viewerImage) viewerImage.style.transform = ''; // 이미지 원위치
         }
 
         // 3. 그 외 (액션 없었으면 이미지 원위치)
@@ -187,8 +295,6 @@
             // console.log("Action: Reset Position Only");
             viewerImage.style.transform = '';
         }
-
-        isDragging = false; // 상태 초기화
     }
 
 
@@ -221,6 +327,7 @@
     }
 
     function handleViewerClick(event) { /* 이전과 동일 */
+        // isDragging 상태도 확인 추가
         if (!pageJumpOverlay && !isDragging && event.target === fullscreenViewer) {
              closeFullscreen();
         }
@@ -237,7 +344,7 @@
           viewerImage.removeEventListener('mousedown', handlePointerDown);
           viewerImage.removeEventListener('touchstart', handlePointerDown);
       }
-      // document 리스너는 handlePointerUp에서 제거되므로 여기서 또 제거할 필요 없음
+      // document 리스너는 handlePointerUp에서 제거됨
       if (fullscreenViewer) fullscreenViewer.removeEventListener('click', handleViewerClick);
       if (counterElement) counterElement.removeEventListener('click', togglePageJumpUI);
       document.removeEventListener('keydown', handleKeydown);
@@ -248,6 +355,7 @@
           fullscreenContainer.innerHTML = '';
           fullscreenViewer = null; viewerImage = null; counterContainer = null;
           counterElement = null; pageJumpOverlay = null;
+          // 상태 초기화
           isDragging = false; pointerDown = false;
       }, 300);
     }
@@ -284,3 +392,9 @@
         openFullscreen(parseInt(this.getAttribute('data-index'), 10));
       });
     });
+
+    // --- 임시 이미지 생성 코드 없음 ---
+
+  </script>
+</body>
+</html>

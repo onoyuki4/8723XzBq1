@@ -2,123 +2,88 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>테스트 작품 1 (페이지 점프 기능 포함)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" /> <!-- user-scalable=no 추가 (스와이프 시 확대 방지) -->
+  <title>테스트 작품 1 (스크롤 점프 + 스와이프)</title>
   <style>
-    /* 기본 스타일 */
+    /* --- 기본 스타일 --- */
     body { font-family: sans-serif; padding: 1rem; background: #fff; margin: 0; }
     .info { text-align: center; margin-bottom: 1rem; }
     .info h2 { margin: 0.5rem 0; }
     .images { display: flex; flex-direction: column; gap: 10px; align-items: center; }
     .images img {
-        max-width: 300px;
-        max-height: 400px;
-        width: auto;
-        height: auto;
-        border-radius: 8px;
-        box-shadow: 0 0 8px rgba(0,0,0,0.1);
-        cursor: pointer;
+        max-width: 300px; max-height: 400px; width: auto; height: auto;
+        border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); cursor: pointer;
     }
+    #fullscreen-container { position: relative; }
 
-    /* 카운터 컨테이너 */
+    /* --- 카운터 --- */
     .counter-container {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      z-index: 10000; /* 다른 요소들보다 위에 표시 */
+      position: fixed; top: 10px; right: 10px; z-index: 10002;
     }
-
-    /* 카운터 텍스트 스타일 */
     .fancybox__counter {
-      font-size: 16px;
-      background: rgba(0, 0, 0, 0.6);
-      color: #fff;
-      padding: 4px 10px;
-      border-radius: 12px;
-      user-select: none;
-      cursor: pointer; /* 클릭 가능 표시 */
-      display: inline-block;
+      font-size: 16px; background: rgba(0, 0, 0, 0.6); color: #fff;
+      padding: 4px 10px; border-radius: 12px; user-select: none;
+      cursor: pointer; display: inline-block;
+    }
+    /* 점프 UI 활성 시 카운터 흐리게 */
+    .fullscreen-container.jump-ui-active .counter-container {
+        opacity: 0.2; pointer-events: none;
     }
 
-    /* 전체 화면 뷰어 스타일 */
+    /* --- 전체 화면 뷰어 --- */
     .fullscreen-viewer {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.9);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999; /* 카운터 컨테이너 바로 아래 */
-      cursor: pointer; /* 다음 이미지 이동 기본 커서 */
-      opacity: 0;
-      visibility: hidden;
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background-color: rgba(0, 0, 0, 0.9); display: flex;
+      justify-content: center; align-items: center; z-index: 9999;
+      opacity: 0; visibility: hidden;
       transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+      overflow: hidden; /* 스와이프 시 이미지 이동 감추기 */
     }
-
-    .fullscreen-viewer.active {
-        opacity: 1;
-        visibility: visible;
-    }
-
+    .fullscreen-viewer.active { opacity: 1; visibility: visible; }
     .fullscreen-viewer img {
-      max-width: 95%;
-      max-height: 95%;
-      object-fit: contain;
+      max-width: 95%; max-height: 95%; object-fit: contain;
+      cursor: grab; /* 드래그 가능 표시 */
+      user-select: none; /* 이미지 선택 방지 */
+      -webkit-user-drag: none; /* 크롬/사파리 드래그 방지 */
+      transition: transform 0.2s ease-out; /* 스와이프 시 부드러운 이동 */
+    }
+    .fullscreen-viewer img.dragging {
+        cursor: grabbing; /* 드래그 중 커서 변경 */
     }
 
-    /* --- 페이지 점프 목록 관련 스타일 --- */
-    #page-jump-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.7); /* 반투명 검은 배경 */
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 10001; /* 카운터보다도 위에 표시 */
-      cursor: pointer; /* 오버레이 클릭 시 닫기 위함 */
+    /* --- 페이지 점프 UI (스크롤 목록 방식) --- */
+    .page-jump-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background-color: rgba(0, 0, 0, 0.7); display: flex;
+      justify-content: center; align-items: center;
+      z-index: 10001; cursor: pointer;
     }
-
     #page-jump-list {
-      background-color: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      max-height: 70vh; /* 화면 높이 제한 */
-      overflow-y: auto; /* 스크롤 */
-      display: flex;
-      flex-wrap: wrap; /* 여러 줄 표시 */
-      gap: 10px; /* 번호 사이 간격 */
+      background-color: #fff; padding: 15px; border-radius: 10px;
+      max-height: 80vh; /* 스크롤 높이 제한 */
+      overflow-y: auto; /* 세로 스크롤 항상 표시 */
+      display: flex; /* 버튼 가로 배치 후 줄바꿈 */
+      flex-wrap: wrap; /* 여러 줄로 표시 */
+      gap: 8px; /* 버튼 간격 */
       justify-content: center;
-      cursor: default; /* 목록 자체는 기본 커서 */
-      max-width: 80vw; /* 화면 너비 제한 */
+      cursor: default;
+      max-width: 90vw; /* 너비 제한 */
+      /* 스크롤바 스타일링 (선택 사항) */
+      scrollbar-width: thin;
+      scrollbar-color: #aaa #eee;
     }
+    #page-jump-list::-webkit-scrollbar { width: 8px; }
+    #page-jump-list::-webkit-scrollbar-track { background: #eee; border-radius: 4px;}
+    #page-jump-list::-webkit-scrollbar-thumb { background-color: #aaa; border-radius: 4px; }
 
     .page-jump-number {
-      display: inline-block;
-      padding: 8px 12px;
-      background-color: #eee;
-      border-radius: 5px;
-      cursor: pointer;
-      font-weight: bold;
-      min-width: 30px;
-      text-align: center;
-      transition: background-color 0.2s ease;
+      display: inline-block; padding: 6px 10px; background-color: #eee;
+      border-radius: 5px; cursor: pointer; font-weight: bold;
+      min-width: 28px; text-align: center; transition: background-color 0.2s ease;
+      font-size: 14px; /* 글자 크기 살짝 줄임 */
     }
-
-    .page-jump-number:hover {
-      background-color: #ddd;
-    }
-
-    .page-jump-number.current {
-        background-color: #007bff; /* 활성 페이지 색상 */
-        color: white;
-    }
-    /* --- 페이지 점프 목록 스타일 끝 --- */
+    .page-jump-number:hover { background-color: #ddd; }
+    .page-jump-number.current { background-color: #007bff; color: white; }
 
   </style>
 </head>
@@ -128,262 +93,294 @@
     <p>작가: ChatGPT | 태그: 샘플, 테스트, 갤러리</p>
   </div>
   <div class="images">
-    <!-- data-index는 0부터 시작합니다 -->
+    <!-- 예시 이미지 링크 (실제 경로로 수정 필요) -->
     <a href="1.jpg" data-index="0"><img src="1.jpg" alt="1" /></a>
     <a href="2.jpg" data-index="1"><img src="2.jpg" alt="2" /></a>
     <a href="3.webp" data-index="2"><img src="3.webp" alt="3" /></a>
-    <!-- 이미지를 더 추가하려면 위와 같은 형식으로 추가하고 data-index를 순서대로 증가시키세요 -->
-    <a href="placeholder4.jpg" data-index="3"><img src="placeholder4.jpg" alt="4" /></a>
-    <a href="placeholder5.png" data-index="4"><img src="placeholder5.png" alt="5" /></a>
-    <a href="placeholder6.jpg" data-index="5"><img src="placeholder6.jpg" alt="6" /></a>
-    <a href="placeholder7.jpg" data-index="6"><img src="placeholder7.jpg" alt="7" /></a>
-    <a href="placeholder8.jpg" data-index="7"><img src="placeholder8.jpg" alt="8" /></a>
-    <a href="placeholder9.jpg" data-index="8"><img src="placeholder9.jpg" alt="9" /></a>
-    <a href="placeholder10.jpg" data-index="9"><img src="placeholder10.jpg" alt="10" /></a>
+    <!-- ... 100개 이상 추가 가능 ... -->
+    <a href="placeholder100.jpg" data-index="99"><img src="placeholder100.jpg" alt="100" /></a>
   </div>
 
-  <!-- 전체 화면 뷰어와 카운터/점프 목록을 위한 컨테이너 -->
   <div id="fullscreen-container"></div>
 
   <script>
     const imageLinks = document.querySelectorAll('.images a');
     const fullscreenContainer = document.getElementById('fullscreen-container');
+
     let currentIndex = 0;
     let isFullscreen = false;
-    let fullscreenViewer = null; // 전체 화면 이미지 뷰어 div
-    let counterContainer = null; // 카운터 텍스트를 담는 div
-    let counterElement = null;   // 실제 카운터 텍스트 (e.g., "1 / 10")
-    let pageJumpOverlay = null; // 페이지 점프 목록 오버레이 div
+    let fullscreenViewer = null;
+    let viewerImage = null; // 현재 표시되는 이미지 요소
+    let counterContainer = null;
+    let counterElement = null;
+    let pageJumpOverlay = null;
 
-    // 카운터 텍스트 업데이트 함수
+    // 스와이프 관련 변수
+    let isDragging = false;
+    let startX = 0;
+    let currentX = 0;
+    const swipeThreshold = 50; // 스와이프로 인정할 최소 X축 이동 거리
+
     function updateCounter() {
       if (counterElement) {
         counterElement.innerText = `${currentIndex + 1} / ${imageLinks.length}`;
       }
     }
 
-    // 특정 인덱스의 이미지를 보여주는 함수
-    function showImage(index) {
-        // 유효한 인덱스인지 확인
+    function showImage(index, direction = 0) { // direction: 1=next, -1=prev
         if (index >= 0 && index < imageLinks.length) {
             currentIndex = index;
             const imageUrl = imageLinks.item(currentIndex).getAttribute('href');
-            if (fullscreenViewer) {
-                fullscreenViewer.querySelector('img').src = imageUrl;
-                updateCounter(); // 이미지 변경 후 카운터 업데이트
+            if (viewerImage) {
+                // 이미지 교체 (간단한 페이드 효과 추가 가능하나, 일단 직접 교체)
+                viewerImage.src = imageUrl;
+                viewerImage.style.transform = ''; // 스와이프 이동 초기화
+                updateCounter();
             }
         } else {
             console.warn(`Invalid index: ${index}`);
         }
     }
 
-    // 페이지 점프 목록을 보여주거나 숨기는 토글 함수
-    function togglePageJumpList() {
-        if (!isFullscreen) return; // 전체 화면 아닐 때는 무시
+    // --- 페이지 점프 UI (스크롤 목록) ---
 
-        // 이미 목록이 열려있으면 닫기
-        if (pageJumpOverlay) {
-            removePageJumpList();
-            return;
-        }
+    function togglePageJumpUI() {
+        if (!isFullscreen) return;
+        if (pageJumpOverlay) { removePageJumpUI(); return; }
 
-        // 오버레이 생성
         pageJumpOverlay = document.createElement('div');
-        pageJumpOverlay.id = 'page-jump-overlay';
-        // 오버레이 배경 클릭 시 닫기 (목록 영역 제외)
-        pageJumpOverlay.addEventListener('click', (event) => {
-            if (event.target === pageJumpOverlay) { // 오버레이 자체를 클릭했을 때만
-                removePageJumpList();
-            }
-        });
+        pageJumpOverlay.className = 'page-jump-overlay';
+        pageJumpOverlay.addEventListener('click', handleOverlayClick);
 
-        // 페이지 번호 목록 컨테이너 생성
+        createPageJumpButtonList(pageJumpOverlay); // 항상 버튼 목록 생성
+
+        fullscreenContainer.appendChild(pageJumpOverlay);
+        fullscreenContainer.classList.add('jump-ui-active');
+
+        // 현재 페이지 번호 버튼으로 스크롤
+        const currentButton = pageJumpOverlay.querySelector(`.page-jump-number.current`);
+        if (currentButton) {
+            // 스크롤 부드럽게 (최신 브라우저 지원)
+             currentButton.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+             // 구형 브라우저 fallback
+             // currentButton.scrollIntoViewIfNeeded ? currentButton.scrollIntoViewIfNeeded() : currentButton.scrollIntoView();
+        }
+    }
+
+    function handleOverlayClick(event) {
+        if (event.target === pageJumpOverlay) removePageJumpUI();
+    }
+
+    function createPageJumpButtonList(overlay) {
         const listContainer = document.createElement('div');
         listContainer.id = 'page-jump-list';
+        listContainer.addEventListener('click', (e) => e.stopPropagation());
 
-        // 페이지 번호 생성 및 추가
         for (let i = 1; i <= imageLinks.length; i++) {
             const pageNumElement = document.createElement('span');
             pageNumElement.className = 'page-jump-number';
             pageNumElement.textContent = i;
-            pageNumElement.dataset.page = i; // 클릭 시 사용할 페이지 번호 저장
-
-            // 현재 페이지 번호 강조
-            if (i === currentIndex + 1) {
-                pageNumElement.classList.add('current');
-            }
-
-            // 페이지 번호 클릭 이벤트
-            pageNumElement.addEventListener('click', (event) => {
-                event.stopPropagation(); // 오버레이 클릭 이벤트 전파 방지 중요!
-                const targetPage = parseInt(event.target.dataset.page, 10);
-                showImage(targetPage - 1); // 0-based 인덱스로 변환하여 이미지 표시
-                removePageJumpList(); // 번호 클릭 후 목록 닫기
-            });
+            pageNumElement.dataset.page = i;
+            if (i === currentIndex + 1) pageNumElement.classList.add('current');
+            pageNumElement.addEventListener('click', handleJumpNumberClick);
             listContainer.appendChild(pageNumElement);
         }
-
-        pageJumpOverlay.appendChild(listContainer);
-        fullscreenContainer.appendChild(pageJumpOverlay); // DOM에 오버레이 추가
+        overlay.appendChild(listContainer);
     }
 
-    // 페이지 점프 목록을 제거하는 함수
-    function removePageJumpList() {
-        if (pageJumpOverlay) {
-            pageJumpOverlay.remove(); // DOM에서 제거
-            pageJumpOverlay = null; // 참조 제거
+    function handleJumpNumberClick(event) {
+        const targetPage = parseInt(event.target.dataset.page, 10);
+        showImage(targetPage - 1);
+        removePageJumpUI();
+    }
+
+    function removePageJumpUI() {
+        if (pageJumpOverlay) { pageJumpOverlay.remove(); pageJumpOverlay = null; }
+        fullscreenContainer.classList.remove('jump-ui-active');
+    }
+
+    // --- 스와이프 이벤트 핸들러 ---
+
+    function handleSwipeStart(event) {
+        // 점프 UI 열려있으면 무시
+        if (pageJumpOverlay || !viewerImage) return;
+        // 마우스 오른쪽 버튼 클릭 무시
+        if (event.button && event.button !== 0) return;
+
+        isDragging = true;
+        // 터치 이벤트와 마우스 이벤트 좌표 통일
+        startX = event.type.startsWith('touch') ? event.touches[0].clientX : event.clientX;
+        currentX = startX;
+        viewerImage.classList.add('dragging'); // 드래그 중 클래스
+        // 드래그 중에는 이미지 전환 효과(transition) 잠시 제거 (선택사항)
+        // viewerImage.style.transition = 'none';
+    }
+
+    function handleSwipeMove(event) {
+        if (!isDragging || !viewerImage) return;
+
+        currentX = event.type.startsWith('touch') ? event.touches[0].clientX : event.clientX;
+        const diffX = currentX - startX;
+
+        // 시각적 피드백: 이미지를 드래그 방향으로 약간 이동
+        viewerImage.style.transform = `translateX(${diffX}px)`;
+    }
+
+    function handleSwipeEnd(event) {
+        if (!isDragging || !viewerImage) return;
+
+        isDragging = false;
+        viewerImage.classList.remove('dragging');
+        // viewerImage.style.transition = ''; // 트랜지션 복원
+
+        const diffX = currentX - startX;
+
+        // 스와이프 판정
+        if (diffX > swipeThreshold) { // 오른쪽으로 충분히 스와이프 -> 이전 이미지
+            prevImage();
+        } else if (diffX < -swipeThreshold) { // 왼쪽으로 충분히 스와이프 -> 다음 이미지
+            nextImage();
+        } else {
+            // 스와이프 거리가 짧으면 원래 위치로 복귀 (클릭 동작은 handleViewerClick에서 처리)
+            viewerImage.style.transform = '';
         }
+        // 클릭 처리 로직은 handleViewerClick으로 이동
     }
 
-    // 전체 화면 뷰어 열기 함수
-    function openFullscreen(index) {
-      if (isFullscreen) return; // 중복 실행 방지
 
+    // --- 전체 화면 뷰어 관련 함수 ---
+
+    function openFullscreen(index) {
+      if (isFullscreen) return;
       currentIndex = index;
       isFullscreen = true;
       const imageUrl = imageLinks.item(currentIndex).getAttribute('href');
 
-      // 전체 화면 뷰어 요소 생성
       fullscreenViewer = document.createElement('div');
       fullscreenViewer.classList.add('fullscreen-viewer');
+      // 이미지 로딩 후 처리하도록 구조 변경 가능 (로딩 스피너 등)
       fullscreenViewer.innerHTML = `<img src="${imageUrl}" alt="Image ${currentIndex + 1}">`;
-      // 뷰어 클릭 시 다음 이미지 (점프 목록 없을 때만)
-      fullscreenViewer.addEventListener('click', nextImage);
+      viewerImage = fullscreenViewer.querySelector('img'); // 이미지 요소 참조
 
-      // 카운터 컨테이너 생성
+      // 이벤트 리스너 추가
+      fullscreenViewer.addEventListener('click', handleViewerClick); // 배경 클릭 처리
+      viewerImage.addEventListener('mousedown', handleSwipeStart);
+      viewerImage.addEventListener('touchstart', handleSwipeStart, { passive: true }); // passive:true 권장
+      // document 전체에 move/end 리스너 추가 (뷰어 밖으로 나가도 인식)
+      document.addEventListener('mousemove', handleSwipeMove);
+      document.addEventListener('touchmove', handleSwipeMove, { passive: true });
+      document.addEventListener('mouseup', handleSwipeEnd);
+      document.addEventListener('touchend', handleSwipeEnd);
+      document.addEventListener('mouseleave', handleSwipeEnd); // 창 벗어나면 드래그 종료
+
       counterContainer = document.createElement('div');
       counterContainer.className = 'counter-container';
-
-      // 카운터 텍스트 요소 생성 및 클릭 이벤트 연결
       counterElement = document.createElement("div");
       counterElement.className = "fancybox__counter";
-      counterElement.addEventListener('click', togglePageJumpList); // 카운터 클릭 시 점프 목록 토글
-
-      // 생성된 요소들을 DOM에 추가
+      counterElement.addEventListener('click', togglePageJumpUI);
       counterContainer.appendChild(counterElement);
+
       fullscreenContainer.appendChild(fullscreenViewer);
-      fullscreenContainer.appendChild(counterContainer); // 카운터가 뷰어보다 위에 오도록 마지막에 추가
+      fullscreenContainer.appendChild(counterContainer);
 
-      updateCounter(); // 카운터 초기 텍스트 설정
-
-      // 키보드 이벤트 리스너 추가
+      updateCounter();
       document.addEventListener('keydown', handleKeydown);
 
-      // 부드러운 등장을 위해 약간의 딜레이 후 active 클래스 추가
-      requestAnimationFrame(() => {
-          fullscreenViewer.classList.add('active');
-      });
+      requestAnimationFrame(() => fullscreenViewer.classList.add('active'));
     }
 
-    // 전체 화면 뷰어 닫기 함수
+    // 뷰어 클릭 처리 (배경 클릭 시 닫기)
+    function handleViewerClick(event) {
+        // 점프 UI 열려있거나 드래그 중이면 무시
+        if (pageJumpOverlay || isDragging) return;
+
+        // 배경 클릭 시 닫기
+        if (event.target === fullscreenViewer) {
+            // 드래그 직후 클릭 방지 (짧은 드래그 후 클릭 방지)
+            const timeSinceDragEnd = Date.now() - (window.lastSwipeEndTime || 0);
+             if(timeSinceDragEnd > 100) { // 100ms 이내 클릭은 무시
+                closeFullscreen();
+            }
+        }
+         // 이미지 클릭 시 nextImage()는 스와이프 로직에서 처리하므로 여기선 제거
+    }
+
     function closeFullscreen() {
       if (!isFullscreen) return;
-
       isFullscreen = false;
-
-      removePageJumpList(); // 닫을 때 점프 목록도 확실히 제거
+      removePageJumpUI();
 
       // 이벤트 리스너 제거
-      if (fullscreenViewer) {
-        fullscreenViewer.removeEventListener('click', nextImage);
+      if (fullscreenViewer) fullscreenViewer.removeEventListener('click', handleViewerClick);
+      if (viewerImage) {
+          viewerImage.removeEventListener('mousedown', handleSwipeStart);
+          viewerImage.removeEventListener('touchstart', handleSwipeStart);
       }
-      if (counterElement) {
-          counterElement.removeEventListener('click', togglePageJumpList);
-      }
+      document.removeEventListener('mousemove', handleSwipeMove);
+      document.removeEventListener('touchmove', handleSwipeMove);
+      document.removeEventListener('mouseup', handleSwipeEnd);
+      document.removeEventListener('touchend', handleSwipeEnd);
+      document.removeEventListener('mouseleave', handleSwipeEnd);
+
+      if (counterElement) counterElement.removeEventListener('click', togglePageJumpUI);
       document.removeEventListener('keydown', handleKeydown);
 
-      // 부드러운 퇴장을 위해 active 클래스 제거
-      if(fullscreenViewer){
-          fullscreenViewer.classList.remove('active');
-      }
+      if (fullscreenViewer) fullscreenViewer.classList.remove('active');
 
-      // 트랜지션 완료 후 요소 제거
       setTimeout(() => {
-          fullscreenContainer.innerHTML = ''; // 컨테이너 내용 비우기
-          // 참조 초기화
-          fullscreenViewer = null;
-          counterContainer = null;
-          counterElement = null;
-          pageJumpOverlay = null; // 추가
-      }, 300); // CSS transition 시간과 일치
+          fullscreenContainer.innerHTML = '';
+          fullscreenViewer = null; viewerImage = null; counterContainer = null;
+          counterElement = null; pageJumpOverlay = null;
+          isDragging = false; // 상태 초기화
+      }, 300);
     }
 
-    // 다음 이미지 표시 함수
     function nextImage() {
-      // 점프 목록이 열려있지 않을 때만 다음 이미지로 이동
       if (isFullscreen && !pageJumpOverlay) {
-        const nextIndex = (currentIndex + 1) % imageLinks.length;
-        showImage(nextIndex);
+        showImage((currentIndex + 1) % imageLinks.length, 1);
+        window.lastSwipeEndTime = Date.now(); // 스와이프 종료 시간 기록
       }
     }
-
-    // 이전 이미지 표시 함수
     function prevImage() {
-        // 점프 목록이 열려있지 않을 때만 이전 이미지로 이동
         if (isFullscreen && !pageJumpOverlay) {
-            const prevIndex = (currentIndex - 1 + imageLinks.length) % imageLinks.length;
-            showImage(prevIndex);
+            showImage((currentIndex - 1 + imageLinks.length) % imageLinks.length, -1);
+            window.lastSwipeEndTime = Date.now(); // 스와이프 종료 시간 기록
         }
     }
 
-    // 키보드 이벤트 처리 함수
     function handleKeydown(event) {
-        // 페이지 점프 목록이 열려 있을 때 Esc 키 처리
-        if (pageJumpOverlay) {
-            if (event.key === 'Escape') {
-                removePageJumpList();
-            }
-            return; // 목록 열려있으면 다른 키 동작 방지
+        if (pageJumpOverlay) { // 점프 UI 열려있으면 Esc만 처리
+            if (event.key === 'Escape') removePageJumpUI();
+            return;
         }
-
-        // 아래는 목록이 닫혀있을 때만 실행됨
-        if (isFullscreen) {
-            if (event.key === 'Escape') {
-                closeFullscreen();
-            } else if (event.key === 'ArrowRight' || event.key === ' ') { // 오른쪽 화살표 또는 스페이스바
-                nextImage();
-            } else if (event.key === 'ArrowLeft') { // 왼쪽 화살표
-                prevImage();
-            }
+        if (isFullscreen) { // 뷰어 활성 시
+            if (event.key === 'Escape') closeFullscreen();
+            else if (event.key === 'ArrowRight' || event.key === ' ') nextImage();
+            else if (event.key === 'ArrowLeft') prevImage();
         }
     }
 
-    // 초기 이미지 링크들에 클릭 이벤트 리스너 설정
+    // --- 초기화 ---
     imageLinks.forEach(link => {
       link.addEventListener('click', function(event) {
-        event.preventDefault(); // 링크 기본 동작(페이지 이동) 방지
-        const index = parseInt(this.getAttribute('data-index'), 10);
-        openFullscreen(index);
+        event.preventDefault();
+        openFullscreen(parseInt(this.getAttribute('data-index'), 10));
       });
     });
 
-    // --- 임시 이미지 생성 (테스트용, 실제 사용 시 제거 또는 주석 처리) ---
-    function createPlaceholderImage(index, color) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 600;
-        canvas.height = 800;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = color;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 48px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(`Image ${index + 1}`, canvas.width / 2, canvas.height / 2);
-        return canvas.toDataURL();
+    // --- 임시 이미지 생성 (테스트용) ---
+    function createPlaceholderImage(index, color) { /* ... 이전과 동일 ... */
+        const canvas = document.createElement('canvas'); canvas.width = 600; canvas.height = 800; const ctx = canvas.getContext('2d');
+        ctx.fillStyle = color; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = 'white'; ctx.font = 'bold 48px sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(`Image ${index + 1}`, canvas.width / 2, canvas.height / 2); return canvas.toDataURL();
     }
+    const totalImages = imageLinks.length;
+    const colors = ['#FF6347', '#4682B4', '#32CD32', '#FFD700', '#6A5ACD', '#FF8C00', '#8A2BE2', '#00CED1', '#DC143C', '#B8860B'];
     imageLinks.forEach(link => {
-        const imgElement = link.querySelector('img');
-        const imgIndex = parseInt(link.getAttribute('data-index'), 10);
-        const colors = ['#FF6347', '#4682B4', '#32CD32', '#FFD700', '#6A5ACD', '#FF8C00', '#8A2BE2', '#00CED1', '#DC143C', '#B8860B'];
-        const color = colors[imgIndex % colors.length];
-        const placeholderSrc = createPlaceholderImage(imgIndex, color);
-        if (!imgElement.hasAttribute('src') || imgElement.getAttribute('src').startsWith('placeholder')) {
-             imgElement.src = placeholderSrc;
-        }
-        if (!link.hasAttribute('href') || link.getAttribute('href').startsWith('placeholder')) {
-            link.href = placeholderSrc;
-         }
+        const imgElement = link.querySelector('img'); const imgIndex = parseInt(link.getAttribute('data-index'), 10);
+        const color = colors[imgIndex % colors.length]; const placeholderSrc = createPlaceholderImage(imgIndex, color);
+        if (!imgElement.hasAttribute('src') || imgElement.getAttribute('src').startsWith('placeholder')) { imgElement.src = placeholderSrc; }
+        if (!link.hasAttribute('href') || link.getAttribute('href').startsWith('placeholder')) { link.href = placeholderSrc; }
     });
     // --- 임시 이미지 생성 끝 ---
 

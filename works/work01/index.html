@@ -11,6 +11,7 @@
     .info h2 { margin: 0.5rem 0; }
     .images { display: flex; flex-direction: column; gap: 10px; align-items: center; }
     .images img { max-width: 90%; height: auto; border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); }
+
     .fancybox__counter {
       position: absolute;
       top: 10px;
@@ -22,6 +23,7 @@
       padding: 4px 10px;
       border-radius: 12px;
       cursor: pointer;
+      user-select: none;
     }
   </style>
 </head>
@@ -35,39 +37,40 @@
     <a href="2.jpg" data-fancybox="gallery"><img src="2.jpg" alt="2" /></a>
     <a href="3.webp" data-fancybox="gallery"><img src="3.webp" alt="3" /></a>
   </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5/dist/fancybox/fancybox.umd.js"></script>
   <script>
     Fancybox.bind("[data-fancybox='gallery']", {
       Carousel: { infinite: false },
-  Toolbar: false,
-  Thumbs: false,
-  dragToClose: false,
-  showClass: false,
-  hideClass: false,
-  animated: false,
-  on: {
-  ready: (fancybox) => {
-    if (!fancybox.container.querySelector('.fancybox__counter')) {
-      const counter = document.createElement("div");
-      counter.className = "fancybox__counter";
-      counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
-      fancybox.container.appendChild(counter);
-    }
+      Toolbar: false,
+      Thumbs: false,
+      dragToClose: false,
+      showClass: false,
+      hideClass: false,
+      animated: false,
+      on: {
+        ready: (fancybox) => {
+          const counter = document.createElement("div");
+          counter.className = "fancybox__counter";
+          counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
+          fancybox.container.appendChild(counter);
 
-    fancybox.container.onclick = (e) => {
-      const target = e.target;
-      if (target.closest('img') && !target.closest('.fancybox__counter')) {
-        fancybox.next();
+          // 전체 영역 클릭 시 다음 이미지
+          fancybox.container.onclick = (e) => {
+            // fancybox__counter를 누르면 무시
+            if (!e.target.closest('.fancybox__counter')) {
+              fancybox.next();
+            }
+          };
+        },
+        change: (fancybox) => {
+          const counter = document.querySelector(".fancybox__counter");
+          if (counter) {
+            counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
+          }
+        }
       }
-    };
-  },
-  change: (fancybox) => {
-    const counter = document.querySelector(".fancybox__counter");
-    if (counter) {
-      counter.innerText = `${fancybox.page + 1} / ${fancybox.items.length}`;
-    }
-  }
-}
+    });
   </script>
 </body>
 </html>

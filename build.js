@@ -2,108 +2,165 @@
 const fs = require('fs'); // 파일 시스템 모듈
 const path = require('path'); // 경로 관련 모듈
 
+// --- 설정 변수 ---
 const worksDir = path.join(__dirname, 'works'); // 'works' 폴더 경로
-const worksList = []; // 메인 페이지용 작품 데이터 목록
-const ignoreFolders = []; // <<<--- 혹시 build.js가 처리하지 않아야 할 폴더 이름이 있다면 여기에 추가 (예: ['work00'])
+const templateDir = path.join(__dirname, '_template'); // '_template' 폴더 경로
+const templateFile = 'work_page_template.html'; // 사용할 템플릿 파일 이름
+const templatePath = path.join(templateDir, templateFile); // 템플릿 파일의 전체 경로
+const worksListFile = path.join(__dirname, 'works-list.js'); // 생성될 작품 목록 파일 경로
+const ignoreFolders = []; // <<<--- 빌드에서 제외할 works 폴더 내의 폴더 이름 목록 (예: ['temp', '.git'])
+// --- ---
 
-console.log('빌드를 시작합니다...');
+const worksList = []; // 메인 페이지용 작품 데이터 목록
+
+console.log('====================================');
+console.log('     이미지 갤러리 빌드 시작');
+console.log('====================================');
 
 try {
-    // 1. 'works' 폴더 읽기 (ignoreFolders 제외)
+    // --- 사전 검사 ---
+    // 1. 'works' 폴더 존재 확인
+    if (!fs.existsSync(worksDir) || !fs.statSync(worksDir).isDirectory()) {
+        console.error(`[오류] 'works' 폴더(${worksDir})를 찾을 수 없습니다. 빌드를 중단합니다.`);
+        process.exit(1); // 오류 코드 1로 종료
+    }
+
+    // 2. 템플릿 파일 존재 확인
+    if (!fs.existsSync(templatePath) || !fs.statSync(templatePath).isFile()) {
+        console.error(`[오류] 템플릿 파일(${templatePath})을 찾을 수 없습니다. 빌드를 중단합니다.`);
+        process.exit(1); // 오류 코드 1로 종료
+    }
+    console.log(`[정보] 사용할 템플릿 파일: ${templatePath}`);
+    // --- ---
+
+    // 1. 'works' 폴더 내의 하위 폴더 목록 읽기
     const workFolders = fs.readdirSync(worksDir, { withFileTypes: true })
-        .filter(dirent => dirent.isDirectory() && !ignoreFolders.includes(dirent.name)) // 디렉토리 & 무시 목록 제외
-        .map(dirent => dirent.name); // 디렉토리 이름만 추출
+        .filter(dirent => dirent.isDirectory() && !ignoreFolders.includes(dirent.name)) // 디렉토리이고, 무시 목록에 없어야 함
+        .map(dirent => dirent.name); // 폴더 이름만 추출
 
-    console.log(`총 ${workFolders.length}개의 작품 폴더를 처리합니다.`);
+    console.log(`\n[정보] 총 ${workFolders.length}개의 작품 폴더를 처리합니다.`);
+    if (workFolders.length === 0) {
+        console.warn("[경고] 처리할 작품 폴더가 없습니다.");
+    }
 
-    // 2. 각 작품 폴더 처리
+    // 2. 각 작품 폴더 순회하며 처리
     workFolders.forEach(folderName => {
         const workFolderPath = path.join(worksDir, folderName);
-        const workId = folderName; // 폴더 이름을 ID로 사용
+        const workId = folderName; // 폴더 이름을 작품 ID로 사용
         let workTitle = folderName; // 기본 제목은 폴더 이름
         let workAuthor = 'Unknown'; // 기본 작가
         let imageFiles = [];
 
-        console.log(`- 작품 폴더 처리 중: ${folderName}`);
+        console.log(`\n--- 작품 폴더 처리 중: ${folderName} ---`);
 
         try {
-            // 2-1. 메타데이터 파일 읽기 (제목, 작가)
+            // 2-1. 메타데이터 파일 읽기 (metadata.json)
             const metaFilePath = path.join(workFolderPath, 'metadata.json');
             if (fs.existsSync(metaFilePath)) {
-                const metaData = JSON.parse(fs.readFileSync(metaFilePath, 'utf-8'));
-                workTitle = metaData.title || workTitle;
-                workAuthor = metaData.author || workAuthor;
-                console.log(`  > 메타데이터 로드: 제목="${workTitle}", 작가="${workAuthor}"`);
+                try {
+                    const metaData = JSON.parse(fs.readFileSync(metaFilePath, 'utf-8'));
+                    workTitle = metaData.title || workTitle;
+                    workAuthor = metaData.author || workAuthor;
+                    console.log(`  [성공] 메타데이터 로드: 제목="${workTitle}", 작가="${workAuthor}"`);
+                } catch (jsonError) {
+                    console.warn(`  [경고] ${folderName}/metadata.json 파일 파싱 오류: ${jsonError.message}. 기본값을 사용합니다.`);
+                }
             } else {
-                console.warn(`  > 경고: ${folderName}/metadata.json 파일이 없습니다. 기본값을 사용합니다.`);
+                console.warn(`  [경고] ${folderName}/metadata.json 파일이 없습니다. 기본값을 사용합니다.`);
             }
 
-            // 2-2. 이미지 파일 목록 읽기 및 정렬 (01.*, 02.* 등 패턴)
+            // 2-2. 이미지 파일 목록 읽기 및 정렬
             const filesInFolder = fs.readdirSync(workFolderPath);
             imageFiles = filesInFolder
-                // 파일 이름 패턴: 숫자 두 자리 이상으로 시작하고, 특정 확장자를 가짐
-                .filter(file => /^\d{2,}\.(png|jpg|jpeg|webp|gif)$/i.test(file))
-                // 숫자 기준으로 정렬 (중요!)
+                // 파일 이름 패턴: 숫자 두 자리 이상으로 시작하고, 특정 이미지 확장자를 가짐
+                .filter(file => /^\d{2,}\.(png|jpg|jpeg|webp|gif|avif)$/i.test(file))
+                // 숫자 기준으로 오름차순 정렬 (중요!)
                 .sort((a, b) => {
-                    // 파일 이름에서 숫자 부분만 추출하여 정수로 변환 후 비교
-                    const numA = parseInt(a.match(/^\d+/)?.[0] || '0', 10); // 숫자가 없으면 0으로 처리
+                    const numA = parseInt(a.match(/^\d+/)?.[0] || '0', 10);
                     const numB = parseInt(b.match(/^\d+/)?.[0] || '0', 10);
                     return numA - numB;
                 });
 
             if (imageFiles.length === 0) {
-                console.warn(`  > 경고: ${folderName} 폴더에서 정렬 규칙에 맞는 이미지 파일을 찾을 수 없습니다.`);
-                // 이미지가 없어도 config.js는 생성될 수 있음 (빈 배열)
+                console.warn(`  [경고] ${folderName} 폴더에서 유효한 이미지 파일을 찾을 수 없습니다.`);
             } else {
-                console.log(`  > 이미지 ${imageFiles.length}개 감지.`);
+                console.log(`  [정보] 이미지 ${imageFiles.length}개 감지됨: [${imageFiles.slice(0, 3).join(', ')}${imageFiles.length > 3 ? ', ...' : ''}]`);
             }
 
-
             // 2-3. config.js 파일 생성 또는 덮어쓰기
-            // JSON.stringify를 사용하여 문자열 내 특수문자(따옴표 등) 처리
-            const configContent = `// Auto-generated by build.js
+            // JSON.stringify를 사용하여 문자열 내 특수문자(따옴표, 줄바꿈 등) 안전하게 처리
+            const configContent = `// Auto-generated by build.js @ ${new Date().toISOString()}
 const workConfig = {
-title: ${JSON.stringify(workTitle)},
-author: ${JSON.stringify(workAuthor)},
-images: ${JSON.stringify(imageFiles, null, 2)} // 감지된 이미지 목록 배열
+  id: ${JSON.stringify(workId)},
+  title: ${JSON.stringify(workTitle)},
+  author: ${JSON.stringify(workAuthor)},
+  images: ${JSON.stringify(imageFiles, null, 2)} // 감지된 이미지 목록 배열 (가독성을 위해 줄바꿈)
 };`;
             const configPath = path.join(workFolderPath, 'config.js');
             fs.writeFileSync(configPath, configContent, 'utf-8');
-            console.log(`  > ${configPath} 생성/업데이트 완료.`);
+            console.log(`  [성공] ${path.relative(__dirname, configPath)} 생성/업데이트 완료.`);
 
-            // 2-4. 메인 페이지용 데이터 추가 (이미지가 하나라도 있어야 추가)
+            // 2-4. index.html 템플릿 복사 (항상 덮어쓰기)
+            const indexPath = path.join(workFolderPath, 'index.html');
+            try {
+                fs.copyFileSync(templatePath, indexPath); // templatePath 내용을 indexPath로 복사 (파일이 있으면 덮어씀)
+                console.log(`  [성공] ${path.relative(__dirname, indexPath)} 템플릿 복사/덮어쓰기 완료.`);
+            } catch (copyErr) {
+                // 복사 중 오류 발생 시 (예: 권한 문제)
+                console.error(`  [오류] ${path.relative(__dirname, indexPath)} 템플릿 복사 실패: ${copyErr.message}`);
+            }
+
+            // 2-5. 메인 페이지용 작품 목록(worksList)에 데이터 추가 (이미지가 하나라도 있어야 함)
             if (imageFiles.length > 0) {
                 worksList.push({
                     id: workId,
                     title: workTitle,
                     author: workAuthor,
-                    firstImage: imageFiles[0] // 정렬된 목록의 첫 번째 이미지
+                    firstImage: imageFiles[0], // 정렬된 목록의 첫 번째 이미지를 썸네일용으로 사용
+                    imageCount: imageFiles.length // 이미지 개수 정보 추가 (선택 사항)
                 });
+                 console.log(`  [정보] 메인 목록에 '${workId}' 추가됨.`);
             } else {
-                 console.warn(`  > 이미지가 없어 메인 목록에서 제외합니다: ${folderName}`);
+                 console.warn(`  [경고] 이미지가 없어 메인 목록에서 제외됩니다: ${folderName}`);
             }
 
         } catch (err) {
-            console.error(`  > 오류 발생 (${folderName}):`, err.message);
+            // 해당 작품 폴더 처리 중 예측 못한 오류 발생 시
+            console.error(`  [오류] 작품 폴더 '${folderName}' 처리 중 예상치 못한 오류 발생: ${err.message}`);
+            console.error(err.stack); // 상세 스택 트레이스 출력
         }
     });
 
     // 3. 메인 페이지용 works-list.js 파일 생성
+    console.log(`\n--- 메인 작품 목록 파일 생성 ---`);
     if (worksList.length > 0) {
-        // id 기준 정렬 (폴더 이름순)
+        // 작품 목록을 ID(폴더 이름) 기준으로 오름차순 정렬
         worksList.sort((a, b) => a.id.localeCompare(b.id));
 
-        const worksListContent = `// Auto-generated by build.js
-const worksData = ${JSON.stringify(worksList, null, 2)};`;
-        const worksListPath = path.join(__dirname, 'works-list.js'); // 루트 폴더에 생성
-        fs.writeFileSync(worksListPath, worksListContent, 'utf-8');
-        console.log(`\n메인 페이지용 작품 목록 파일 생성 완료: ${worksListPath}`);
+        const worksListContent = `// Auto-generated by build.js @ ${new Date().toISOString()}
+// Contains a list of all works found in the 'works' directory.
+const worksData = ${JSON.stringify(worksList, null, 2)}; // 가독성을 위해 null, 2 사용`;
+
+        fs.writeFileSync(worksListFile, worksListContent, 'utf-8');
+        console.log(`[성공] 메인 작품 목록 파일 생성 완료: ${worksListFile} (${worksList.length}개 작품)`);
     } else {
-        console.warn('\n처리할 작품이 없어 메인 페이지 목록 파일을 생성하지 않았습니다.');
+        // 처리된 작품이 하나도 없을 경우, 빈 목록 파일 생성 또는 기존 파일 유지 선택 가능
+        // 여기서는 파일을 생성하지 않고 경고만 표시
+        console.warn('[경고] 유효한 작품 데이터가 없어 메인 작품 목록 파일을 생성하지 않았습니다.');
+        // 필요하다면 빈 배열로 파일을 생성하도록 수정 가능:
+        // const emptyWorksListContent = `// Auto-generated by build.js\nconst worksData = [];`;
+        // fs.writeFileSync(worksListFile, emptyWorksListContent, 'utf-8');
     }
 
-    console.log('\n빌드를 성공적으로 완료했습니다.');
+    console.log('====================================');
+    console.log('      빌드 성공적으로 완료');
+    console.log('====================================');
 
 } catch (error) {
-    console.error('\n빌드 중 오류가 발생했습니다:', error);
+    // 빌드 프로세스 전체에서 오류 발생 시
+    console.error('\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    console.error('    빌드 중 심각한 오류 발생');
+    console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    console.error(error); // 전체 오류 객체 출력
+    process.exit(1); // 오류 코드 1로 종료
 }

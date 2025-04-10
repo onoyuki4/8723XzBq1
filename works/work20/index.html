@@ -2,23 +2,15 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <!-- user-scalable=yes 또는 제거 확인 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>작품 뷰어</title>
   <style>
-    /* CSS 내용은 이전과 동일 (핀치/패닝 관련 클래스 제거 가능) */
+    /* CSS 내용은 이전과 동일 */
     body { font-family: sans-serif; padding: 1rem; background: #fff; margin: 0; } body.fullscreen-active { overflow: hidden; } .info { text-align: center; margin-bottom: 1rem; } .info h2 { margin: 0.5rem 0; } .info .author { color: #555; font-size: 0.9em; margin-top: 0.2rem;} .images { display: flex; flex-direction: column; gap: 10px; align-items: center; } .images a { display: block; width: 90%; max-width: 300px; min-height: 150px; background-color: #eee; border-radius: 8px; overflow: hidden; } .images img { display: block; width: 100%; height: auto; box-shadow: 0 0 8px rgba(0,0,0,0.1); cursor: pointer; opacity: 0; transition: opacity 0.5s ease-in-out; } .images img.lazyloaded { opacity: 1; } #fullscreen-container { position: relative; } .counter-container { position: fixed; top: 10px; right: 10px; z-index: 10002; } .fancybox__counter { font-size: 16px; background: rgba(0, 0, 0, 0.6); color: #fff; padding: 4px 10px; border-radius: 12px; user-select: none; cursor: pointer; display: inline-block; } .fullscreen-container.jump-ui-active .counter-container { opacity: 0.2; pointer-events: none; } .fullscreen-viewer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; opacity: 0; visibility: hidden; transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out; overflow: hidden; } .fullscreen-viewer.active { opacity: 1; visibility: visible; } .fullscreen-viewer img { max-width: 95%; max-height: 95%; object-fit: contain; cursor: grab; user-select: none; -webkit-user-drag: none; transition: opacity 0.2s ease-out;
-      /* ★★★ Hammer.js 사용 시 touch-action 설정이 중요 ★★★ */
-      /* pinch-zoom을 허용하고, 세로 스크롤(pan-y)은 허용할 수 있음 */
-      /* touch-action: pan-y pinch-zoom; */
-      /* 또는 제스처 처리를 완전히 JS에 맡기려면 none */
-      touch-action: none;
+      touch-action: none; /* Hammer가 제어 */
       transform-origin: center center;
-      /* transform transition 제거 또는 조정 필요 */
-      /* transition: opacity 0.2s ease-out, transform 0.1s ease-out; */
-       transition: opacity 0.2s ease-out; /* transform 제외 */
+      transition: none; /* transform transition 제거 (Hammer가 부드럽게 처리) */
      }
-     /* .fullscreen-viewer img.dragging, .fullscreen-viewer img.panning { cursor: grabbing; } /* 이 클래스들 제거 가능 */
     .page-jump-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 10001; cursor: pointer; } #page-jump-list { background-color: #333; color: #eee; padding: 10px 0; border-radius: 10px; max-height: 70vh; overflow-y: auto; display: flex; flex-direction: column; gap: 0px; cursor: default; width: 200px; scrollbar-width: thin; scrollbar-color: #666 #333; } #page-jump-list::-webkit-scrollbar { width: 6px; } #page-jump-list::-webkit-scrollbar-track { background: #333; } #page-jump-list::-webkit-scrollbar-thumb { background-color: #666; border-radius: 3px; } .page-jump-number { display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; cursor: pointer; font-weight: normal; text-align: left; transition: background-color 0.2s ease; border-bottom: 1px solid #444; font-size: 16px; } .page-jump-number:last-child { border-bottom: none; } .page-jump-number:hover { background-color: #444; } .page-jump-number::after { content: ''; display: inline-block; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #888; margin-left: 15px; position: relative; box-sizing: border-box; } .page-jump-number.current { font-weight: bold; } .page-jump-number.current::after { border-color: #eee; background-color: #eee; }
   </style>
 </head>
@@ -29,23 +21,17 @@
   <div id="fullscreen-container"></div>
 
   <script src="config.js"></script>
-  <!-- ▼▼▼ Hammer.js 라이브러리 로드 (CDN) ▼▼▼ -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
-  <!-- ▲▲▲ Hammer.js 라이브러리 로드 (CDN) ▲▲▲ -->
 
   <script> // 메인 뷰어 스크립트 시작
     if (typeof workConfig === 'undefined' || !workConfig || !Array.isArray(workConfig.images)) { /* 오류 처리 생략 */ throw new Error("workConfig is not defined..."); }
 
     const imageFiles = workConfig.images; const fullscreenContainer = document.getElementById('fullscreen-container'); const bodyElement = document.body; const imagesContainer = document.querySelector('.images'); const workTitleElement = document.getElementById('work-title'); const workAuthorElement = document.getElementById('work-author'); const loadMoreTrigger = document.getElementById('load-more-trigger');
     const itemsPerLoad = 10; let lastLoadedIndex = -1; let thumbnailObserver = null; let imageLazyLoadObserver = null;
-    let currentIndex = 0; let isFullscreen = false; let fullscreenViewer = null; let viewerImage = null; let counterContainer = null; let counterElement = null; let pageJumpOverlay = null;
-    // --- 클릭/스와이프 관련 변수 (유지) ---
-    let isDragging = false; let startX = 0, currentX = 0, clickStartX = 0, clickStartY = 0, dragStartTime = 0; let pointerDown = false, clickTimeoutId = null; const swipeThreshold = 50, clickMoveThreshold = 15, clickTimeThreshold = 250; const dragStartThreshold = 5, clickDebounceTime = 60; const preloadCache = new Set();
-    // --- 핀치/패닝 관련 변수 (Hammer.js 사용으로 일부만 필요) ---
-    let currentScale = 1; let lastScale = 1; // 현재 스케일, 마지막 스케일
-    let translateX = 0, translateY = 0; // 패닝은 일단 제외 (줌만 구현)
-    const minScale = 1, maxScale = 5; // 줌 범위
-    let hammerInstance = null; // Hammer.js 인스턴스 저장 변수
+    let currentIndex = 0; let isFullscreen = false; let fullscreenViewer = null; let viewerImage = null; let counterContainer = null; let counterElement = null; let pageJumpOverlay = null; const preloadCache = new Set();
+    // --- Hammer.js 상태 변수 ---
+    let currentScale = 1; let lastScale = 1; let translateX = 0, translateY = 0; let lastTranslateX = 0, lastTranslateY = 0; const minScale = 1, maxScale = 5;
+    let hammerInstance = null;
 
     // --- 썸네일 관련 함수 (동일) ---
     function generateThumbnails(startIndex, count) { /* 내용 동일, 생략 */ const fragment = document.createDocumentFragment(); const endIndex = Math.min(startIndex + count, imageFiles.length); for (let index = startIndex; index < endIndex; index++) { if (index > lastLoadedIndex) { const filename = imageFiles[index]; if (!filename) continue; const link = document.createElement('a'); link.href = filename; link.dataset.index = index; const img = document.createElement('img'); img.dataset.src = filename; img.alt = `${workConfig.title || 'Image'} - Image ${index + 1}`; img.loading = 'lazy'; link.appendChild(img); fragment.appendChild(link); lastLoadedIndex = index; } } imagesContainer.appendChild(fragment); addViewerEventListeners(startIndex, endIndex); setupImageLazyLoadForRange(startIndex, endIndex); if (endIndex >= imageFiles.length && thumbnailObserver && loadMoreTrigger) { thumbnailObserver.unobserve(loadMoreTrigger); loadMoreTrigger.style.display = 'none'; } }
@@ -57,185 +43,140 @@
     // --- 뷰어 공통 함수 ---
     function preloadImage(index) { /* 내용 동일, 생략 */ if (index < 0 || index >= imageFiles.length) return; const imageUrl = imageFiles[index]; if (!imageUrl || preloadCache.has(imageUrl)) return; const img = new Image(); img.src = imageUrl; preloadCache.add(imageUrl); }
     function updateCounter() { /* 내용 동일, 생략 */ if (counterElement) counterElement.innerText = `${currentIndex + 1} / ${imageFiles.length}`; }
-    function showImage(index) { /* 내용 동일, 생략 - 스케일 초기화 포함 */ if (!isFullscreen) return; if (index >= 0 && index < imageFiles.length) { currentIndex = index; const imageUrl = imageFiles[currentIndex]; if (!imageUrl) { console.error(`Image URL is invalid for index: ${index}`); return; } if (viewerImage) { currentScale = 1; lastScale = 1; translateX = 0; translateY = 0; applyTransform(); /* 줌 상태 초기화 */ viewerImage.src = imageUrl; updateCounter(); preloadImage(currentIndex + 1); preloadImage(currentIndex - 1); } } else { console.warn(`Invalid index requested: ${index}`); } }
-    function applyTransform() { // scale만 적용하도록 수정
+    function showImage(index) { /* 내용 동일, 스케일/이동 초기화 */ if (!isFullscreen) return; if (index >= 0 && index < imageFiles.length) { currentIndex = index; const imageUrl = imageFiles[currentIndex]; if (!imageUrl) { console.error(`Image URL is invalid for index: ${index}`); return; } if (viewerImage) { currentScale = 1; lastScale = 1; translateX = 0; translateY = 0; lastTranslateX = 0; lastTranslateY = 0; applyTransform(); viewerImage.src = imageUrl; updateCounter(); preloadImage(currentIndex + 1); preloadImage(currentIndex - 1); } } else { console.warn(`Invalid index requested: ${index}`); } }
+    function applyTransform() { // translate 와 scale 모두 적용
         if (viewerImage) {
-             // 패닝 제외, scale만 적용
-             viewerImage.style.transform = `scale(${currentScale})`;
+            const { constrainedX, constrainedY } = constrainPanning(translateX, translateY, currentScale);
+            viewerImage.style.transform = `translate(${constrainedX}px, ${constrainedY}px) scale(${currentScale})`;
         }
     }
+    function constrainPanning(newX, newY, scale) { /* 내용 동일, 생략 */ if (!viewerImage || scale <= 1) return { constrainedX: 0, constrainedY: 0 }; const naturalWidth = viewerImage.offsetWidth; const naturalHeight = viewerImage.offsetHeight; if (naturalWidth === 0 || naturalHeight === 0) return { constrainedX: 0, constrainedY: 0 }; const scaledWidth = naturalWidth * scale; const scaledHeight = naturalHeight * scale; const maxX = Math.max(0, (scaledWidth - window.innerWidth) / 2); const minX = -maxX; const maxY = Math.max(0, (scaledHeight - window.innerHeight) / 2); const minY = -maxY; const constrainedX = Math.max(minX, Math.min(maxX, newX)); const constrainedY = Math.max(minY, Math.min(maxY, newY)); return { constrainedX, constrainedY }; }
     function togglePageJumpUI() { /* 내용 동일, 생략 */ if (!isFullscreen) return; if (pageJumpOverlay) { removePageJumpUI(); return; } pageJumpOverlay = document.createElement('div'); pageJumpOverlay.className = 'page-jump-overlay'; pageJumpOverlay.addEventListener('click', handleOverlayClick); createPageJumpList(pageJumpOverlay); fullscreenContainer.appendChild(pageJumpOverlay); fullscreenContainer.classList.add('jump-ui-active'); const currentButton = pageJumpOverlay.querySelector(`.page-jump-number.current`); if (currentButton) currentButton.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
     function handleOverlayClick(event) { /* 내용 동일, 생략 */ if (event.target === pageJumpOverlay) removePageJumpUI(); }
     function createPageJumpList(overlay) { /* 내용 동일, 생략 */ const listContainer = document.createElement('div'); listContainer.id = 'page-jump-list'; listContainer.addEventListener('click', (e) => e.stopPropagation()); for (let i = 1; i <= imageFiles.length; i++) { const pageNumElement = document.createElement('div'); pageNumElement.className = 'page-jump-number'; pageNumElement.innerHTML = `<span>${i}</span>`; pageNumElement.dataset.page = i; if (i === currentIndex + 1) pageNumElement.classList.add('current'); pageNumElement.addEventListener('click', handleJumpNumberClick); listContainer.appendChild(pageNumElement); } overlay.appendChild(listContainer); }
     function handleJumpNumberClick(event) { /* 내용 동일, 생략 */ const targetPage = parseInt(event.currentTarget.dataset.page, 10); if (!isNaN(targetPage)) { showImage(targetPage - 1); removePageJumpUI(); } }
     function removePageJumpUI() { /* 내용 동일, 생략 */ if (pageJumpOverlay) { pageJumpOverlay.remove(); pageJumpOverlay = null; } fullscreenContainer.classList.remove('jump-ui-active'); }
 
-    // --- 터치 이벤트 핸들러 (클릭/스와이프 전용) ---
-    // ▼▼▼ handlePointerDown (핀치 로직 제거, 싱글 터치만 처리) ▼▼▼
-    function handlePointerDown(event) {
-        // 핀치나 다른 동작 중이면 무시
-        if (hammerInstance && hammerInstance.isRecognizing) return; // Hammer.js가 제스처 인식 중이면 무시
-        if (pointerDown || pageJumpOverlay || !viewerImage) return;
-        if (event.button && event.button !== 0 && event.type === 'mousedown') return;
-        // 확대된 상태에서는 클릭/스와이프 비활성화 (줌/패닝은 Hammer가 처리)
-        if (currentScale > 1) return;
-
-        pointerDown = true; isDragging = false; dragStartTime = Date.now(); clearTimeout(clickTimeoutId);
-        const touch = event.type.startsWith('touch');
-        startX = touch ? event.touches[0].clientX : event.clientX; currentX = startX;
-        clickStartX = startX; clickStartY = touch ? event.touches[0].clientY : event.clientY;
-
-        document.addEventListener('mousemove', handlePointerMove);
-        document.addEventListener('touchmove', handlePointerMove, { passive: false });
-        document.addEventListener('mouseup', handlePointerUp);
-        document.addEventListener('touchend', handlePointerUp);
-        document.addEventListener('mouseleave', handlePointerUp);
-    }
-    // ▲▲▲ handlePointerDown (핀치 로직 제거, 싱글 터치만 처리) ▲▲▲
-
-    // ▼▼▼ handlePointerMove (핀치/패닝 로직 제거) ▼▼▼
-    function handlePointerMove(event) {
-        if (!pointerDown || currentScale > 1) return; // 싱글 터치 아니거나 확대 상태면 무시
-
-        const touch = event.type.startsWith('touch');
-        const currentMoveX = touch ? event.touches[0].clientX : event.clientX;
-        const currentMoveY = touch ? event.touches[0].clientY : event.clientY;
-
-        if (!isDragging) { // 드래그 시작 판정
-            const moveX = Math.abs(currentMoveX - clickStartX);
-            const moveY = Math.abs(currentMoveY - clickStartY);
-            if (moveX > dragStartThreshold || moveY > dragStartThreshold) isDragging = true;
-        }
-        if (isDragging) currentX = currentMoveX; // 스와이프 거리 계산용
-    }
-    // ▲▲▲ handlePointerMove (핀치/패닝 로직 제거) ▲▲▲
-
-    // ▼▼▼ handlePointerUp (핀치 로직 제거) ▼▼▼
-    function handlePointerUp(event) {
-        if (!pointerDown || currentScale > 1) { // 싱글 터치 아니거나 확대 상태면 무시
-            // 리스너 잔존 방지
-            document.removeEventListener('mousemove', handlePointerMove);
-            document.removeEventListener('touchmove', handlePointerMove);
-            document.removeEventListener('mouseup', handlePointerUp);
-            document.removeEventListener('touchend', handlePointerUp);
-            document.removeEventListener('mouseleave', handlePointerUp);
-            return;
-        }
-
-        pointerDown = false;
-        const wasDragging = isDragging;
-        isDragging = false;
-
-        document.removeEventListener('mousemove', handlePointerMove);
-        document.removeEventListener('touchmove', handlePointerMove);
-        document.removeEventListener('mouseup', handlePointerUp);
-        document.removeEventListener('touchend', handlePointerUp);
-        document.removeEventListener('mouseleave', handlePointerUp);
-
-        if (!viewerImage) return;
-
-        const dragDuration = Date.now() - dragStartTime;
-        const touch = event.type === 'touchend';
-        const endX = touch ? (event.changedTouches && event.changedTouches[0] ? event.changedTouches[0].clientX : currentX) : event.clientX;
-        const endY = touch ? (event.changedTouches && event.changedTouches[0] ? event.changedTouches[0].clientY : clickStartY) : event.clientY;
-        const totalMoveX = Math.abs(endX - clickStartX);
-        const totalMoveY = Math.abs(endY - clickStartY);
-
-        // 클릭 판정
-        if (totalMoveX < clickMoveThreshold && totalMoveY < clickMoveThreshold && dragDuration < clickTimeThreshold) {
-            clearTimeout(clickTimeoutId);
-            clickTimeoutId = setTimeout(() => { nextImage(); }, clickDebounceTime);
-        }
-        // 스와이프 판정
-        else if (wasDragging && Math.abs(currentX - startX) >= swipeThreshold) {
-             clearTimeout(clickTimeoutId);
-             if (currentX - startX > 0) prevImage(); else nextImage();
-        }
-    }
-    // ▲▲▲ handlePointerUp (핀치 로직 제거) ▲▲▲
-
-    // --- Hammer.js 핀치 이벤트 핸들러 ---
+    // --- ★★★ Hammer.js 이벤트 핸들러 ★★★ ---
     function handlePinchStart(ev) {
         console.log("Hammer: Pinch Start");
-        lastScale = currentScale; // 현재 스케일 저장
+        lastScale = currentScale;
+        // 줌 중심 패닝을 위해 초기 이동값 저장 (더 자연스러운 줌 효과)
+        lastTranslateX = translateX;
+        lastTranslateY = translateY;
+        // (줌 중심점 계산은 복잡하므로 여기서는 생략, 필요시 추가)
     }
     function handlePinchMove(ev) {
-        // console.log("Hammer: Pinch Move, Scale:", ev.scale); // 로그 너무 많음
-        let newScale = lastScale * ev.scale; // Hammer의 scale은 제스처 시작부터의 비율
-        newScale = Math.max(minScale, Math.min(maxScale, newScale)); // 범위 제한
-        if (currentScale !== newScale) { // 스케일 변경 시에만 적용
-             currentScale = newScale;
-             applyTransform();
-        }
+        // console.log("Hammer: Pinch Move, Scale:", ev.scale);
+        let newScale = lastScale * ev.scale;
+        newScale = Math.max(minScale, Math.min(maxScale, newScale));
+        currentScale = newScale;
+        // (줌 중심점 계산 및 translateX/Y 업데이트 로직 추가 필요)
+        applyTransform(); // 현재는 중앙 줌만 적용됨
     }
     function handlePinchEnd(ev) {
         console.log("Hammer: Pinch End, Final Scale:", currentScale);
-        lastScale = currentScale; // 최종 스케일 저장
-        // 스케일이 1 미만이면 원래대로 복구 (선택적)
-        if (currentScale < 1) { // 실제로는 minScale이 1이라 이 조건은 불필요할 수 있음
-            currentScale = 1;
-            lastScale = 1;
-            translateX = 0; // 혹시 모를 이동값 초기화
-            translateY = 0;
+        lastScale = currentScale;
+        if (currentScale <= 1) { // 1 이하로 축소 시 리셋
+            currentScale = 1; lastScale = 1;
+            translateX = 0; translateY = 0;
+            lastTranslateX = 0; lastTranslateY = 0;
             applyTransform();
         }
-         // 확대 상태가 아니라면 클릭/스와이프 리스너 다시 활성화 (선택적)
-         // 현재 구조에서는 handlePointerDown에서 currentScale > 1 체크로 처리됨
+    }
+    function handlePanStart(ev) {
+         if (currentScale <= 1) return; // 확대 안됐으면 패닝 무시
+         console.log("Hammer: Pan Start");
+         lastTranslateX = translateX;
+         lastTranslateY = translateY;
+    }
+    function handlePanMove(ev) {
+        if (currentScale <= 1) return; // 확대 안됐으면 패닝 무시
+        // console.log("Hammer: Pan Move, DeltaX:", ev.deltaX, "DeltaY:", ev.deltaY);
+        translateX = lastTranslateX + ev.deltaX;
+        translateY = lastTranslateY + ev.deltaY;
+        applyTransform(); // 이동 적용 (constrainPanning 내부에서 처리)
+    }
+    function handlePanEnd(ev) {
+        if (currentScale <= 1) return; // 확대 안됐으면 패닝 무시
+        console.log("Hammer: Pan End");
+        // 마지막 위치는 applyTransform 내에서 이미 lastTranslateX/Y에 저장됨
+    }
+    function handleTap(ev) {
+        // 확대 상태가 아닐 때만 다음 이미지로
+        if (currentScale <= 1 && !pageJumpOverlay) {
+             console.log("Hammer: Tap Detected (Next Image)");
+             nextImage();
+        } else {
+             console.log("Hammer: Tap Ignored (Zoomed or Jump UI active)");
+        }
+    }
+    function handleSwipe(ev) {
+        // 확대 상태가 아닐 때만 이전/다음 이미지로
+        if (currentScale <= 1 && !pageJumpOverlay) {
+            if (ev.direction === Hammer.DIRECTION_LEFT) {
+                console.log("Hammer: Swipe Left (Next Image)");
+                nextImage();
+            } else if (ev.direction === Hammer.DIRECTION_RIGHT) {
+                console.log("Hammer: Swipe Right (Prev Image)");
+                prevImage();
+            }
+        } else {
+            console.log("Hammer: Swipe Ignored (Zoomed or Jump UI active)");
+        }
     }
 
-    // --- 뷰어 열기 (Hammer.js 초기화 추가) ---
+    // --- 뷰어 열기/닫기, 이미지 넘김, 키보드 이벤트 함수 ---
     function openFullscreen(index) {
         if (isFullscreen) return; currentIndex = index; isFullscreen = true; const imageUrl = imageFiles[currentIndex]; if (!imageUrl) { console.error("Invalid image index:", index); isFullscreen = false; return; } bodyElement.classList.add('fullscreen-active'); fullscreenViewer = document.createElement('div'); fullscreenViewer.classList.add('fullscreen-viewer'); fullscreenViewer.innerHTML = `<img src="${imageUrl}" alt="${workConfig.title || 'Image'} - Image ${currentIndex + 1}">`; viewerImage = fullscreenViewer.querySelector('img');
-        // 기존 리스너 (클릭/스와이프용)
-        viewerImage.addEventListener('mousedown', handlePointerDown); viewerImage.addEventListener('touchstart', handlePointerDown, { passive: false });
-        viewerImage.onload = () => { preloadImage(currentIndex + 1); preloadImage(currentIndex - 1); }; viewerImage.onerror = () => { console.error("Failed load:", imageUrl); viewerImage.alt="이미지 로드 실패"; }; fullscreenViewer.addEventListener('click', handleViewerClick);
-        // 카운터 생성
+        viewerImage.onload = () => { preloadImage(currentIndex + 1); preloadImage(currentIndex - 1); }; viewerImage.onerror = () => { console.error("Failed load:", imageUrl); viewerImage.alt="이미지 로드 실패"; };
+        // 배경 클릭 시 닫기는 Hammer tap 핸들러에서 간접적으로 처리 (확대 안됐을 때)
+        // fullscreenViewer.addEventListener('click', handleViewerClick); // 제거
+
         counterContainer = document.createElement('div'); counterContainer.className = 'counter-container'; counterElement = document.createElement("div"); counterElement.className = "fancybox__counter"; counterElement.addEventListener('click', togglePageJumpUI); counterContainer.appendChild(counterElement);
-        // DOM 추가
         fullscreenContainer.appendChild(fullscreenViewer); fullscreenContainer.appendChild(counterContainer); updateCounter(); document.addEventListener('keydown', handleKeydown);
 
-        // ▼▼▼ Hammer.js 초기화 ▼▼▼
-        hammerInstance = new Hammer(viewerImage, {
-            recognizers: [
-                // Pinch recognizer만 활성화하고 임계값 조정 (필요시)
-                [Hammer.Pinch, { enable: true /*, threshold: 0 */ }]
-                // Pan recognizer는 일단 비활성화 (줌만 구현)
-                // [Hammer.Pan, { enable: false }]
-            ]
+        // ▼▼▼ Hammer.js 초기화 (모든 제스처 활성화) ▼▼▼
+        hammerInstance = new Hammer(fullscreenViewer, { // 뷰어 전체 영역에 적용
+             recognizers: [
+                 [Hammer.Pinch, { enable: true }],
+                 // Pan은 Pinch와 동시에 인식되도록 설정 (recognizeWith)
+                 [Hammer.Pan, { enable: true, direction: Hammer.DIRECTION_ALL }],
+                 [Hammer.Swipe, { enable: true, direction: Hammer.DIRECTION_HORIZONTAL }], // 수평 스와이프만
+                 [Hammer.Tap, { enable: true, taps: 1, event: 'tap' }] // 싱글 탭
+             ]
         });
+        // Pinch와 Pan 동시 인식 허용 (줌하면서 패닝 가능하도록)
+        hammerInstance.get('pinch').recognizeWith(hammerInstance.get('pan'));
+
         hammerInstance.on('pinchstart', handlePinchStart);
         hammerInstance.on('pinchmove', handlePinchMove);
-        hammerInstance.on('pinchend', handlePinchEnd);
-        hammerInstance.on('pinchcancel', handlePinchEnd); // 취소 시에도 종료 처리
-        console.log("Hammer.js initialized for pinch");
+        hammerInstance.on('pinchend pinchcancel', handlePinchEnd); // 종료 및 취소
+        hammerInstance.on('panstart', handlePanStart);
+        hammerInstance.on('panmove', handlePanMove);
+        hammerInstance.on('panend pancancel', handlePanEnd); // 종료 및 취소
+        hammerInstance.on('tap', handleTap);
+        hammerInstance.on('swipeleft', handleSwipe);
+        hammerInstance.on('swiperight', handleSwipe);
+        console.log("Hammer.js initialized for ALL gestures");
         // ▲▲▲ Hammer.js 초기화 ▲▲▲
 
         requestAnimationFrame(() => { if (fullscreenViewer) fullscreenViewer.classList.add('active'); });
     }
-    function handleViewerClick(event) { /* 내용 동일, 생략 */ if (!pageJumpOverlay && currentScale <= 1 && event.target === fullscreenViewer) closeFullscreen(); } // isPanning 체크 제거
+    // handleViewerClick 함수 제거
 
-    // --- 뷰어 닫기 (Hammer.js 제거 추가) ---
     function closeFullscreen() {
-        if (!isFullscreen) return; isFullscreen = false; removePageJumpUI(); bodyElement.classList.remove('fullscreen-active'); clearTimeout(clickTimeoutId);
-        // 기존 리스너 제거
-        if (viewerImage) { viewerImage.removeEventListener('mousedown', handlePointerDown); viewerImage.removeEventListener('touchstart', handlePointerDown); }
-        if (fullscreenViewer) fullscreenViewer.removeEventListener('click', handleViewerClick);
-        if (counterElement) counterElement.removeEventListener('click', togglePageJumpUI); document.removeEventListener('keydown', handleKeydown);
+        if (!isFullscreen) return; isFullscreen = false; removePageJumpUI(); bodyElement.classList.remove('fullscreen-active');
         // ▼▼▼ Hammer.js 인스턴스 제거 ▼▼▼
-        if (hammerInstance) {
-            hammerInstance.destroy();
-            hammerInstance = null;
-            console.log("Hammer.js instance destroyed");
-        }
+        if (hammerInstance) { hammerInstance.destroy(); hammerInstance = null; console.log("Hammer.js instance destroyed"); }
         // ▲▲▲ Hammer.js 인스턴스 제거 ▲▲▲
-        // Intersection Observers 중지
+        // 직접 추가한 리스너는 없으므로 제거 불필요
+        if (counterElement) counterElement.removeEventListener('click', togglePageJumpUI); document.removeEventListener('keydown', handleKeydown);
         if (thumbnailObserver) thumbnailObserver.disconnect(); if (imageLazyLoadObserver) imageLazyLoadObserver.disconnect(); thumbnailObserver = null; imageLazyLoadObserver = null;
-        // 상태 초기화 및 DOM 제거
         if (fullscreenViewer) fullscreenViewer.classList.remove('active');
-        setTimeout(() => { fullscreenContainer.innerHTML = ''; fullscreenViewer = null; viewerImage = null; counterContainer = null; counterElement = null; pageJumpOverlay = null; isDragging = false; pointerDown = false; currentScale = 1; lastScale = 1; translateX = 0; translateY = 0; preloadCache.clear(); }, 300);
+        setTimeout(() => { fullscreenContainer.innerHTML = ''; fullscreenViewer = null; viewerImage = null; counterContainer = null; counterElement = null; pageJumpOverlay = null;
+             currentScale = 1; lastScale = 1; translateX = 0; translateY = 0; lastTranslateX = 0; lastTranslateY = 0; preloadCache.clear(); }, 300);
     }
-
-    // --- 다음/이전 이미지, 키보드 이벤트 (수정 없음) ---
     function nextImage() { /* 내용 동일, 생략 */ if (isFullscreen && !pageJumpOverlay && currentScale <= 1) showImage((currentIndex + 1) % imageFiles.length); }
     function prevImage() { /* 내용 동일, 생략 */ if (isFullscreen && !pageJumpOverlay && currentScale <= 1) showImage((currentIndex - 1 + imageFiles.length) % imageFiles.length); }
     function handleKeydown(event) { /* 내용 동일, 생략 */ if (pageJumpOverlay) { if (event.key === 'Escape') removePageJumpUI(); return; } if (isFullscreen) { if (event.key === 'Escape') closeFullscreen(); } }

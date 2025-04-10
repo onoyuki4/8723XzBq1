@@ -38,7 +38,24 @@
     function showImage(index) { /* 내용 동일, 생략 */ if (!isFullscreen) return; if (index >= 0 && index < imageFiles.length) { currentIndex = index; const imageUrl = imageFiles[currentIndex]; if (!imageUrl) { console.error(`Image URL is invalid for index: ${index}`); return; } if (viewerImage) { currentScale = 1; translateX = 0; translateY = 0; lastScale = 1; lastTranslateX = 0; lastTranslateY = 0; isPinching = false; isPanning = false; applyTransform(); viewerImage.src = imageUrl; updateCounter(); preloadImage(currentIndex + 1); preloadImage(currentIndex - 1); } } else { console.warn(`Invalid index requested: ${index}`); } }
     function getDistance(p1, p2) { /* 내용 동일, 생략 */ const dx = p1.clientX - p2.clientX; const dy = p1.clientY - p2.clientY; return Math.sqrt(dx * dx + dy * dy); }
     function getMidpoint(p1, p2) { /* 내용 동일, 생략 */ return { x: (p1.clientX + p2.clientX) / 2, y: (p1.clientY + p2.clientY) / 2 }; }
-    function applyTransform() { /* 내용 동일, 생략 */ if (viewerImage) { const { constrainedX, constrainedY } = constrainPanning(translateX, translateY, currentScale); translateX = constrainedX; translateY = constrainedY; lastTranslateX = translateX; lastTranslateY = translateY; viewerImage.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`; } }
+
+    // ▼▼▼ applyTransform 함수에 로그 추가 ▼▼▼
+    function applyTransform() {
+        if (viewerImage) {
+            const { constrainedX, constrainedY } = constrainPanning(translateX, translateY, currentScale);
+            // 값 변경 로그 (필요시 주석 해제)
+            // if (translateX !== constrainedX || translateY !== constrainedY) {
+            //     console.log(`[Constrain] X: ${translateX}=>${constrainedX}, Y: ${translateY}=>${constrainedY}`);
+            // }
+            translateX = constrainedX; translateY = constrainedY;
+            lastTranslateX = translateX; lastTranslateY = translateY;
+            const transformString = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
+            console.log("[ApplyTransform] Setting transform:", transformString); // <--- Transform 적용 로그
+            viewerImage.style.transform = transformString;
+        }
+    }
+    // ▲▲▲ applyTransform 함수에 로그 추가 ▲▲▲
+
     function constrainPanning(newX, newY, scale) { /* 내용 동일, 생략 */ if (!viewerImage || scale <= 1) return { constrainedX: 0, constrainedY: 0 }; const naturalWidth = viewerImage.offsetWidth; const naturalHeight = viewerImage.offsetHeight; if (naturalWidth === 0 || naturalHeight === 0) return { constrainedX: 0, constrainedY: 0 }; const scaledWidth = naturalWidth * scale; const scaledHeight = naturalHeight * scale; const maxX = Math.max(0, (scaledWidth - window.innerWidth) / 2); const minX = -maxX; const maxY = Math.max(0, (scaledHeight - window.innerHeight) / 2); const minY = -maxY; const constrainedX = Math.max(minX, Math.min(maxX, newX)); const constrainedY = Math.max(minY, Math.min(maxY, newY)); return { constrainedX, constrainedY }; }
     function togglePageJumpUI() { /* 내용 동일, 생략 */ if (!isFullscreen) return; if (pageJumpOverlay) { removePageJumpUI(); return; } pageJumpOverlay = document.createElement('div'); pageJumpOverlay.className = 'page-jump-overlay'; pageJumpOverlay.addEventListener('click', handleOverlayClick); createPageJumpList(pageJumpOverlay); fullscreenContainer.appendChild(pageJumpOverlay); fullscreenContainer.classList.add('jump-ui-active'); const currentButton = pageJumpOverlay.querySelector(`.page-jump-number.current`); if (currentButton) currentButton.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
     function handleOverlayClick(event) { /* 내용 동일, 생략 */ if (event.target === pageJumpOverlay) removePageJumpUI(); }
@@ -46,96 +63,101 @@
     function handleJumpNumberClick(event) { /* 내용 동일, 생략 */ const targetPage = parseInt(event.currentTarget.dataset.page, 10); if (!isNaN(targetPage)) { showImage(targetPage - 1); removePageJumpUI(); } }
     function removePageJumpUI() { /* 내용 동일, 생략 */ if (pageJumpOverlay) { pageJumpOverlay.remove(); pageJumpOverlay = null; } fullscreenContainer.classList.remove('jump-ui-active'); }
 
-    // --- 터치 이벤트 핸들러 ---
-    function handlePointerDown(event) {        // ▼▼▼ 로그 추가 ▼▼▼
-        console.log('[Pointer Down]', 'Type:', event.type, 'Touches:', event.touches ? event.touches.length : 0, 'States:', { isPinching, isPanning, isDragging, pointerDown });
-        // ▲▲▲ 로그 추가 ▲▲▲
-
-        // 기존의 함수 시작 부분 코드
-        if (pageJumpOverlay || !viewerImage) return;
-        // ... 이하 생략 ...
-
-        // 함수 중간에 추가하라고 한 로그도 마찬가지로 해당 위치에 삽입
-        if (event.type === 'touchstart' && event.touches.length === 2) { // 핀치 시작
-            console.log(">>> Pinch Start Detected! Setting isPinching=true <<<"); // <--- 이런 식으로 삽입
-            // ...
+    // --- 터치 이벤트 핸들러 (로그 추가) ---
+    // ▼▼▼ handlePointerDown 함수에 로그 추가 ▼▼▼
+    function handlePointerDown(event) {
+        console.log('[Pointer Down]', 'Type:', event.type, 'Touches:', event.touches ? event.touches.length : 0, 'States:', { isPinching, isPanning, isDragging, pointerDown }); // 상태 로그
+        if (pageJumpOverlay || !viewerImage) return; if (event.button && event.button !== 0 && event.type === 'mousedown') return;
+        if (event.type === 'touchstart' && event.touches.length === 2) {
+            console.log(">>> Pinch Start Detected! Setting isPinching=true <<<"); // 핀치 시작 로그
+            event.preventDefault(); isPinching = true; isPanning = false; isDragging = false; pointerDown = false;
+            initialDistance = getDistance(event.touches[0], event.touches[1]); const midpoint = getMidpoint(event.touches[0], event.touches[1]);
+            lastScale = currentScale; lastTranslateX = translateX; lastTranslateY = translateY; pinchCenterX = midpoint.x; pinchCenterY = midpoint.y;
+            document.removeEventListener('mousemove', handlePointerMove); document.removeEventListener('touchmove', handlePointerMove); document.removeEventListener('mouseup', handlePointerUp); document.removeEventListener('touchend', handlePointerUp); document.removeEventListener('mouseleave', handlePointerUp); return;
         }
-    } /* 내용 동일, 생략 */ if (pageJumpOverlay || !viewerImage) return; if (event.button && event.button !== 0 && event.type === 'mousedown') return; if (event.type === 'touchstart' && event.touches.length === 2) { event.preventDefault(); isPinching = true; isPanning = false; isDragging = false; pointerDown = false; initialDistance = getDistance(event.touches[0], event.touches[1]); const midpoint = getMidpoint(event.touches[0], event.touches[1]); lastScale = currentScale; lastTranslateX = translateX; lastTranslateY = translateY; pinchCenterX = midpoint.x; pinchCenterY = midpoint.y; document.removeEventListener('mousemove', handlePointerMove); document.removeEventListener('touchmove', handlePointerMove); document.removeEventListener('mouseup', handlePointerUp); document.removeEventListener('touchend', handlePointerUp); document.removeEventListener('mouseleave', handlePointerUp); return; } if (event.type === 'touchstart' && event.touches.length > 1) return; if (pointerDown || isPinching) return; pointerDown = true; isDragging = false; isPanning = false; dragStartTime = Date.now(); clearTimeout(clickTimeoutId); const touch = event.type.startsWith('touch'); startX = touch ? event.touches[0].clientX : event.clientX; currentX = startX; clickStartX = startX; clickStartY = touch ? event.touches[0].clientY : event.clientY; if (currentScale > 1) { isPanning = true; panStartX = clickStartX; panStartY = clickStartY; lastTranslateX = translateX; lastTranslateY = translateY; if (viewerImage) viewerImage.classList.add('panning'); } document.addEventListener('mousemove', handlePointerMove); document.addEventListener('touchmove', handlePointerMove, { passive: false }); document.addEventListener('mouseup', handlePointerUp); document.addEventListener('touchend', handlePointerUp); document.addEventListener('mouseleave', handlePointerUp); }
-    function handlePointerMove(event) { /* 내용 동일, 생략 */ if (isPinching && event.type === 'touchmove' && event.touches.length === 2) { event.preventDefault(); const currentDistance = getDistance(event.touches[0], event.touches[1]); if (initialDistance === 0) return; let scale = (currentDistance / initialDistance) * lastScale; scale = Math.max(minScale, Math.min(maxScale, scale)); currentScale = scale; applyTransform(); return; } if (!pointerDown) return; const touch = event.type.startsWith('touch'); const currentMoveX = touch ? event.touches[0].clientX : event.clientX; const currentMoveY = touch ? event.touches[0].clientY : event.clientY; if (isPanning) { event.preventDefault(); translateX = lastTranslateX + (currentMoveX - panStartX); translateY = lastTranslateY + (currentMoveY - panStartY); applyTransform(); } else { if (!isDragging) { const moveX = Math.abs(currentMoveX - clickStartX); const moveY = Math.abs(currentMoveY - clickStartY); if (moveX > dragStartThreshold || moveY > dragStartThreshold) isDragging = true; } if (isDragging) currentX = currentMoveX; } }
-
-    // ▼▼▼ 최종 수정된 handlePointerUp 함수 ▼▼▼
-    function handlePointerUp(event) {
-        // --- 멀티 터치 종료 (핀치) ---
-        if (isPinching) {
-            isPinching = false; // 핀치 상태 무조건 해제
-            // 핀치 종료 후 상태 저장/리셋 로직
-            if (currentScale > 1) {
-                lastTranslateX = translateX;
-                lastTranslateY = translateY;
-            } else { // 축소되어 1이 되면 이동 초기화
-                translateX = 0; translateY = 0;
-                lastTranslateX = 0; lastTranslateY = 0;
-                applyTransform(); // 리셋 적용
-            }
-            return; // 핀치 관련 처리 후 종료 (중요)
+        if (event.type === 'touchstart' && event.touches.length > 1) return; if (pointerDown || isPinching) { console.log("[PointerDown] Ignored: Already active (pointerDown || isPinching)."); return; } // 무시 로그
+        pointerDown = true; isDragging = false; isPanning = false; dragStartTime = Date.now(); clearTimeout(clickTimeoutId);
+        console.log(">>> Single Touch Start (pointerDown=true) <<<"); // 싱글 터치 시작 로그
+        const touch = event.type.startsWith('touch'); startX = touch ? event.touches[0].clientX : event.clientX; currentX = startX; clickStartX = startX; clickStartY = touch ? event.touches[0].clientY : event.clientY;
+        if (currentScale > 1) {
+            console.log("Starting Panning (isPanning=true)"); // 패닝 시작 로그
+            isPanning = true; panStartX = clickStartX; panStartY = clickStartY; lastTranslateX = translateX; lastTranslateY = translateY; if (viewerImage) viewerImage.classList.add('panning');
+        } else {
+             console.log("Ready for Swipe/Click (isDragging=false)"); // 스와이프/클릭 준비 로그
+             isDragging = false;
         }
+        document.addEventListener('mousemove', handlePointerMove); document.addEventListener('touchmove', handlePointerMove, { passive: false }); document.addEventListener('mouseup', handlePointerUp); document.addEventListener('touchend', handlePointerUp); document.addEventListener('mouseleave', handlePointerUp);
+    }
+    // ▲▲▲ handlePointerDown 함수에 로그 추가 ▲▲▲
 
-        // --- 싱글 터치 종료 (스와이프 또는 패닝) ---
-        if (!pointerDown) { // 싱글 터치 시작 안됐으면 무시
-             // 혹시 모를 리스너 잔존 제거 (방어 코드)
-             document.removeEventListener('mousemove', handlePointerMove);
-             document.removeEventListener('touchmove', handlePointerMove);
-             document.removeEventListener('mouseup', handlePointerUp);
-             document.removeEventListener('touchend', handlePointerUp);
-             document.removeEventListener('mouseleave', handlePointerUp);
-             return;
+    // ▼▼▼ handlePointerMove 함수에 로그 추가 ▼▼▼
+    function handlePointerMove(event) {
+        // console.log('[Pointer Move]', 'Type:', event.type, 'Touches:', event.touches ? event.touches.length : 0, 'States:', { isPinching, isPanning, isDragging, pointerDown }); // 필요시 주석 해제
+        if (isPinching && event.type === 'touchmove' && event.touches.length === 2) {
+            // console.log(">>> Pinch Move Detected! <<<"); // 너무 많이 찍힐 수 있음
+            event.preventDefault(); const currentDistance = getDistance(event.touches[0], event.touches[1]); if (initialDistance === 0) return; let scale = (currentDistance / initialDistance) * lastScale; scale = Math.max(minScale, Math.min(maxScale, scale));
+            console.log("[Pinch Move] Calculated Scale:", scale, "Previous Scale:", currentScale); // 스케일 변화 로그
+            currentScale = scale; applyTransform(); return;
         }
-
-        // 싱글 터치 상태 및 플래그 리셋
-        pointerDown = false;
-        const wasDragging = isDragging;
-        const wasPanning = isPanning;
-        isDragging = false;
-        isPanning = false;
-
-        // 공통 리스너 제거
-        document.removeEventListener('mousemove', handlePointerMove);
-        document.removeEventListener('touchmove', handlePointerMove);
-        document.removeEventListener('mouseup', handlePointerUp);
-        document.removeEventListener('touchend', handlePointerUp);
-        document.removeEventListener('mouseleave', handlePointerUp);
-
-        if (!viewerImage) return;
-        viewerImage.classList.remove('panning'); // 패닝 클래스 제거
-
-        const dragDuration = Date.now() - dragStartTime;
-        const touch = event.type === 'touchend';
-        // changedTouches가 없을 수 있으므로 방어 코드 추가
-        const endX = touch ? (event.changedTouches && event.changedTouches[0] ? event.changedTouches[0].clientX : currentX) : event.clientX;
-        const endY = touch ? (event.changedTouches && event.changedTouches[0] ? event.changedTouches[0].clientY : clickStartY) : event.clientY;
-        const totalMoveX = Math.abs(endX - clickStartX);
-        const totalMoveY = Math.abs(endY - clickStartY);
-
-        if (wasPanning) {
-            // 패닝 종료 시 마지막 위치 저장 (이미 applyTransform에서 업데이트됨)
-             lastTranslateX = translateX;
-             lastTranslateY = translateY;
-        } else if (currentScale <= 1) { // 확대 안된 상태에서
-            // 클릭 판정
-            if (totalMoveX < clickMoveThreshold && totalMoveY < clickMoveThreshold && dragDuration < clickTimeThreshold) {
-                clearTimeout(clickTimeoutId);
-                clickTimeoutId = setTimeout(() => { nextImage(); }, clickDebounceTime);
-                // return; // 클릭 처리 후 종료 (아래 로직 실행 방지) -> return 제거 시 스와이프 판정 로직도 실행될 수 있음
-            }
-            // 스와이프 판정 (클릭이 아닐 경우에만 실행되도록 할 수도 있음)
-            else if (wasDragging && Math.abs(currentX - startX) >= swipeThreshold) {
-                 clearTimeout(clickTimeoutId);
-                 if (currentX - startX > 0) prevImage(); else nextImage();
-                 // return; // 스와이프 처리 후 종료
-            }
+        if (!pointerDown) return;
+        const touch = event.type.startsWith('touch'); const currentMoveX = touch ? event.touches[0].clientX : event.clientX; const currentMoveY = touch ? event.touches[0].clientY : event.clientY;
+        if (isPanning) {
+            // console.log(">>> Panning Move! <<<"); // 너무 많이 찍힐 수 있음
+            event.preventDefault(); translateX = lastTranslateX + (currentMoveX - panStartX); translateY = lastTranslateY + (currentMoveY - panStartY); applyTransform();
+        } else {
+             if (!isDragging) { const moveX = Math.abs(currentMoveX - clickStartX); const moveY = Math.abs(currentMoveY - clickStartY); if (moveX > dragStartThreshold || moveY > dragStartThreshold) { isDragging = true; console.log(">>> Dragging Start (isDragging=true) <<<"); } } // 드래그 시작 로그
+             if (isDragging) currentX = currentMoveX;
         }
     }
-    // ▲▲▲ 최종 수정된 handlePointerUp 함수 ▲▲▲
+    // ▲▲▲ handlePointerMove 함수에 로그 추가 ▲▲▲
+
+    // ▼▼▼ handlePointerUp 함수에 로그 추가 (이전 최종 버전 유지) ▼▼▼
+    function handlePointerUp(event) {
+        const isTouchEnd = event.type === 'touchend';
+        console.log('[PointerUp START]', 'Type:', event.type, 'Touches:', event.touches ? event.touches.length : 0, 'States:', { isPinching, isPanning, isDragging, pointerDown }); // 시작 로그
+
+        let pinchJustEnded = false;
+        if (isPinching) {
+            console.log(">>> Pinch End Detected! Setting isPinching=false <<<"); // 핀치 종료 로그
+            isPinching = false; pinchJustEnded = true;
+            if (currentScale > 1) { console.log("[Pinch End] Saving last translate:", { lastTranslateX: translateX, lastTranslateY: translateY }); lastTranslateX = translateX; lastTranslateY = translateY; }
+            else { console.log("[Pinch End] Scale <= 1, Resetting transform."); translateX = 0; translateY = 0; lastTranslateX = 0; lastTranslateY = 0; applyTransform(); }
+        }
+
+        if (pointerDown || pinchJustEnded) {
+             if (pointerDown) { console.log(">>> Single Touch End (Setting pointerDown=false) <<<"); pointerDown = false; } // 싱글 터치 종료 로그
+            const wasDragging = isDragging; const wasPanning = isPanning;
+            isDragging = false; isPanning = false;
+            console.log("[PointerUp] Removing document listeners"); // 리스너 제거 로그
+            document.removeEventListener('mousemove', handlePointerMove); document.removeEventListener('touchmove', handlePointerMove); document.removeEventListener('mouseup', handlePointerUp); document.removeEventListener('touchend', handlePointerUp); document.removeEventListener('mouseleave', handlePointerUp);
+            if (!viewerImage) { console.log("[PointerUp] No viewerImage, returning."); return; }
+            viewerImage.classList.remove('panning');
+
+            if (!pinchJustEnded) { // 싱글 터치 후속 동작
+                const dragDuration = Date.now() - dragStartTime;
+                const endX = isTouchEnd ? (event.changedTouches && event.changedTouches[0] ? event.changedTouches[0].clientX : currentX) : event.clientX;
+                const endY = isTouchEnd ? (event.changedTouches && event.changedTouches[0] ? event.changedTouches[0].clientY : clickStartY) : event.clientY;
+                const totalMoveX = Math.abs(endX - clickStartX); const totalMoveY = Math.abs(endY - clickStartY);
+
+                if (wasPanning) { console.log("[Single Touch End] Was Panning. Saving last translate:", { lastTranslateX: translateX, lastTranslateY: translateY }); lastTranslateX = translateX; lastTranslateY = translateY; }
+                else if (currentScale <= 1) {
+                    console.log("[Single Touch End] Scale <= 1. Checking for click/swipe."); // 클릭/스와이프 확인 로그
+                    if (totalMoveX < clickMoveThreshold && totalMoveY < clickMoveThreshold && dragDuration < clickTimeThreshold) {
+                        console.log(">>> Click Detected! <<<"); // 클릭 감지 로그
+                        clearTimeout(clickTimeoutId); clickTimeoutId = setTimeout(() => { console.log("Executing nextImage() after debounce"); nextImage(); }, clickDebounceTime);
+                    } else if (wasDragging && Math.abs(currentX - startX) >= swipeThreshold) {
+                         console.log(">>> Swipe Detected! <<<", currentX - startX > 0 ? "Swipe Right (Prev)" : "Swipe Left (Next)"); // 스와이프 감지 로그
+                         clearTimeout(clickTimeoutId); if (currentX - startX > 0) prevImage(); else nextImage();
+                    } else { console.log("[Single Touch End] No click or swipe detected."); } // 클릭/스와이프 아님 로그
+                } else { console.log("[Single Touch End] Scale > 1, but was not panning? Saving last translate."); lastTranslateX = translateX; lastTranslateY = translateY; }
+            } else { console.log("[PointerUp] Processed pinch end. No further action needed."); } // 핀치 종료 후 추가 동작 없음 로그
+        } else if (!isPinching) {
+             console.log("[PointerUp] Ignored: Neither pinch nor single touch was active."); // 무시 로그
+             document.removeEventListener('mousemove', handlePointerMove); document.removeEventListener('touchmove', handlePointerMove); document.removeEventListener('mouseup', handlePointerUp); document.removeEventListener('touchend', handlePointerUp); document.removeEventListener('mouseleave', handlePointerUp);
+        }
+        console.log('[PointerUp END]', 'Final States:', { isPinching, isPanning, isDragging, pointerDown }); // 종료 로그
+    }
+    // ▲▲▲ handlePointerUp 함수에 로그 추가 ▲▲▲
 
     // --- 뷰어 열기/닫기, 이미지 넘김, 키보드 이벤트 함수 ---
     function openFullscreen(index) { /* 내용 동일, 생략 */ if (isFullscreen) return; currentIndex = index; isFullscreen = true; const imageUrl = imageFiles[currentIndex]; if (!imageUrl) { console.error("Invalid image index:", index); isFullscreen = false; return; } bodyElement.classList.add('fullscreen-active'); fullscreenViewer = document.createElement('div'); fullscreenViewer.classList.add('fullscreen-viewer'); fullscreenViewer.innerHTML = `<img src="${imageUrl}" alt="${workConfig.title || 'Image'} - Image ${currentIndex + 1}">`; viewerImage = fullscreenViewer.querySelector('img'); viewerImage.addEventListener('mousedown', handlePointerDown); viewerImage.addEventListener('touchstart', handlePointerDown, { passive: false }); viewerImage.onload = () => { preloadImage(currentIndex + 1); preloadImage(currentIndex - 1); }; viewerImage.onerror = () => { console.error("Failed load:", imageUrl); viewerImage.alt="이미지 로드 실패"; }; fullscreenViewer.addEventListener('click', handleViewerClick); counterContainer = document.createElement('div'); counterContainer.className = 'counter-container'; counterElement = document.createElement("div"); counterElement.className = "fancybox__counter"; counterElement.addEventListener('click', togglePageJumpUI); counterContainer.appendChild(counterElement); fullscreenContainer.appendChild(fullscreenViewer); fullscreenContainer.appendChild(counterContainer); updateCounter(); document.addEventListener('keydown', handleKeydown); requestAnimationFrame(() => { if (fullscreenViewer) fullscreenViewer.classList.add('active'); }); }

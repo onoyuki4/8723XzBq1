@@ -59,24 +59,69 @@
     function removePageJumpUI() { /* 내용 동일, 생략 */ if (pageJumpOverlay) { pageJumpOverlay.remove(); pageJumpOverlay = null; } fullscreenContainer.classList.remove('jump-ui-active'); }
 
     // --- 터치 이벤트 핸들러 (로그 추가) ---
-    // ▼▼▼ handlePointerDown 함수 (상태 체크 우선 적용) ▼▼▼
+        // ▼▼▼ 최종 수정 handlePointerDown 함수 (핀치 시작 시 리스너 추가) ▼▼▼
     function handlePointerDown(event) {
         console.log('[Pointer Down]', 'Type:', event.type, 'Touches:', event.touches ? event.touches.length : 0, 'States:', { isPinching, isPanning, isDragging, pointerDown });
-        if (isPinching) { console.log("[PointerDown] Ignored: Already pinching (isPinching is true)."); return; }
-        if (pageJumpOverlay || !viewerImage) return; if (event.button && event.button !== 0 && event.type === 'mousedown') return;
 
-        if (event.type === 'touchstart' && event.touches.length === 2) {
-            console.log(">>> Pinch Start Detected! Setting isPinching=true <<<");
-            event.preventDefault(); isPinching = true; isPanning = false; isDragging = false;
-            if (pointerDown) { console.log("[Pinch Start] Clearing single touch state (pointerDown=false)"); pointerDown = false; /* ... 리스너 제거 ... */ document.removeEventListener('mousemove', handlePointerMove); document.removeEventListener('touchmove', handlePointerMove); document.removeEventListener('mouseup', handlePointerUp); document.removeEventListener('touchend', handlePointerUp); document.removeEventListener('mouseleave', handlePointerUp); }
-            initialDistance = getDistance(event.touches[0], event.touches[1]); const midpoint = getMidpoint(event.touches[0], event.touches[1]);
-            lastScale = currentScale; lastTranslateX = translateX; lastTranslateY = translateY; pinchCenterX = midpoint.x; pinchCenterY = midpoint.y; return;
+        // --- 가장 먼저 이미 핀치 중인지 확인! ---
+        if (isPinching) {
+            console.log("[PointerDown] Ignored: Already pinching (isPinching is true).");
+            return; // 이미 핀치 제스처 중이면 어떤 포인터 다운도 무시
         }
 
-        if (pointerDown) { console.log("[PointerDown] Ignored: Already single-touching (pointerDown is true)."); return; }
-        if (event.type === 'touchstart' && event.touches.length !== 1) { console.log("[PointerDown] Ignored: Not a single touch start (touches:", event.touches.length, ")"); return; }
+        // 뷰어 요소 및 마우스 버튼 체크
+        if (pageJumpOverlay || !viewerImage) return;
+        if (event.button && event.button !== 0 && event.type === 'mousedown') return; // 마우스 오른쪽 등 무시
 
-        pointerDown = true; isDragging = false; isPanning = false; dragStartTime = Date.now(); clearTimeout(clickTimeoutId);
+        // --- 핀치 시작 감지 ---
+        if (event.type === 'touchstart' && event.touches.length === 2) {
+            console.log(">>> Pinch Start Detected! Setting isPinching=true <<<");
+            event.preventDefault();
+            isPinching = true;
+            isPanning = false; // 핀치 시 다른 상태 초기화
+            isDragging = false;
+
+            if (pointerDown) { // 싱글 터치 상태에서 핀치로 전환된 경우
+                 console.log("[Pinch Start] Clearing single touch state (pointerDown=false)");
+                 pointerDown = false;
+                 // 싱글 터치용 리스너 제거
+                 console.log("[Pinch Start] Removing existing single touch listeners");
+                 document.removeEventListener('mousemove', handlePointerMove);
+                 document.removeEventListener('touchmove', handlePointerMove);
+                 document.removeEventListener('mouseup', handlePointerUp);
+                 document.removeEventListener('touchend', handlePointerUp);
+                 document.removeEventListener('mouseleave', handlePointerUp);
+            }
+
+            initialDistance = getDistance(event.touches[0], event.touches[1]);
+            const midpoint = getMidpoint(event.touches[0], event.touches[1]);
+            lastScale = currentScale;
+            lastTranslateX = translateX;
+            lastTranslateY = translateY;
+            pinchCenterX = midpoint.x;
+            pinchCenterY = midpoint.y;
+
+            // *** ★★★ 핀치 제스처 추적을 위한 리스너 추가 ★★★ ***
+            console.log("[Pinch Start] Adding document listeners for pinch");
+            document.addEventListener('touchmove', handlePointerMove, { passive: false }); // 핀치 이동 감지
+            document.addEventListener('touchend', handlePointerUp); // 핀치 종료 감지
+            // mousemove/up/leave는 핀치 중에는 불필요
+
+            return; // 핀치 시작 처리 후 종료
+        }
+
+        // --- 싱글 터치 시작 처리 ---
+        if (pointerDown) { // 이미 싱글 터치 진행 중이면 무시 (이론상 위에서 걸러짐)
+            console.log("[PointerDown] Ignored: Already single-touching (pointerDown is true).");
+            return;
+        }
+        if (event.type === 'touchstart' && event.touches.length !== 1) {
+             console.log("[PointerDown] Ignored: Not a single touch start (touches:", event.touches.length, ")");
+             return;
+        }
+
+        pointerDown = true;
+        isDragging = false; isPanning = false; dragStartTime = Date.now(); clearTimeout(clickTimeoutId);
         console.log(">>> Single Touch Start (pointerDown=true) <<<");
         const touch = event.type.startsWith('touch'); startX = touch ? event.touches[0].clientX : event.clientX; currentX = startX; clickStartX = startX; clickStartY = touch ? event.touches[0].clientY : event.clientY;
         if (currentScale > 1) { console.log("Starting Panning (isPanning=true)"); isPanning = true; panStartX = clickStartX; panStartY = clickStartY; lastTranslateX = translateX; lastTranslateY = translateY; if (viewerImage) viewerImage.classList.add('panning'); }
@@ -84,7 +129,7 @@
         console.log("[PointerDown] Adding document listeners for single touch");
         document.addEventListener('mousemove', handlePointerMove); document.addEventListener('touchmove', handlePointerMove, { passive: false }); document.addEventListener('mouseup', handlePointerUp); document.addEventListener('touchend', handlePointerUp); document.addEventListener('mouseleave', handlePointerUp);
     }
-    // ▲▲▲ handlePointerDown 함수 (상태 체크 우선 적용) ▲▲▲
+    // ▲▲▲ 최종 수정 handlePointerDown 함수 ▲▲▲
 
     // ▼▼▼ handlePointerMove 함수에 로그 추가 ▼▼▼
     function handlePointerMove(event) {

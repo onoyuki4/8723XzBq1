@@ -4,7 +4,7 @@ const path = require('path'); // 경로 관련 모듈
 
 const worksDir = path.join(__dirname, 'works'); // 'works' 폴더 경로
 const worksList = []; // 메인 페이지용 작품 데이터 목록
-const ignoreFolders = ['work01']; // <<<--- 혹시 build.js가 처리하지 않아야 할 폴더 이름이 있다면 여기에 추가 (예: ['work00'])
+const ignoreFolders = []; // <<<--- 혹시 build.js가 처리하지 않아야 할 폴더 이름이 있다면 여기에 추가 (예: ['work00'])
 
 console.log('빌드를 시작합니다...');
 

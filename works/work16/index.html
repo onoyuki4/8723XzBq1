@@ -43,12 +43,7 @@
     function applyTransform() {
         if (viewerImage) {
             const { constrainedX, constrainedY } = constrainPanning(translateX, translateY, currentScale);
-            // 값 변경 로그 (필요시 주석 해제)
-            // if (translateX !== constrainedX || translateY !== constrainedY) {
-            //     console.log(`[Constrain] X: ${translateX}=>${constrainedX}, Y: ${translateY}=>${constrainedY}`);
-            // }
-            translateX = constrainedX; translateY = constrainedY;
-            lastTranslateX = translateX; lastTranslateY = translateY;
+            translateX = constrainedX; translateY = constrainedY; lastTranslateX = translateX; lastTranslateY = translateY;
             const transformString = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
             console.log("[ApplyTransform] Setting transform:", transformString); // <--- Transform 적용 로그
             viewerImage.style.transform = transformString;
@@ -64,173 +59,134 @@
     function removePageJumpUI() { /* 내용 동일, 생략 */ if (pageJumpOverlay) { pageJumpOverlay.remove(); pageJumpOverlay = null; } fullscreenContainer.classList.remove('jump-ui-active'); }
 
     // --- 터치 이벤트 핸들러 (로그 추가) ---
-           // ▼▼▼ 최종 수정 handlePointerDown 함수 ▼▼▼
+    // ▼▼▼ handlePointerDown 함수 (상태 체크 우선 적용) ▼▼▼
     function handlePointerDown(event) {
         console.log('[Pointer Down]', 'Type:', event.type, 'Touches:', event.touches ? event.touches.length : 0, 'States:', { isPinching, isPanning, isDragging, pointerDown });
+        if (isPinching) { console.log("[PointerDown] Ignored: Already pinching (isPinching is true)."); return; }
+        if (pageJumpOverlay || !viewerImage) return; if (event.button && event.button !== 0 && event.type === 'mousedown') return;
 
-        // --- ★★★ 가장 먼저 이미 핀치 중인지 확인! ★★★ ---
-        if (isPinching) {
-            console.log("[PointerDown] Ignored: Already pinching (isPinching is true).");
-            return; // 이미 핀치 제스처 중이면 어떤 포인터 다운도 무시
-        }
-        // --- ★★★ ---
-
-        // 뷰어 요소 및 마우스 버튼 체크
-        if (pageJumpOverlay || !viewerImage) return;
-        if (event.button && event.button !== 0 && event.type === 'mousedown') return; // 마우스 오른쪽 등 무시
-
-        // --- 핀치 시작 감지 ---
-        // (isPinching이 false임이 보장된 상태에서 실행됨)
         if (event.type === 'touchstart' && event.touches.length === 2) {
             console.log(">>> Pinch Start Detected! Setting isPinching=true <<<");
-            event.preventDefault();
-            isPinching = true;
-            isPanning = false; // 핀치 시 다른 상태 초기화
-            isDragging = false;
-            // 중요: 싱글 터치 상태(pointerDown)도 해제해야 함 (첫번째 손가락이 down 상태일 수 있으므로)
-            if (pointerDown) {
-                 console.log("[Pinch Start] Clearing single touch state (pointerDown=false)");
-                 pointerDown = false;
-                 // 싱글 터치용 리스너도 여기서 확실히 제거
-                 document.removeEventListener('mousemove', handlePointerMove);
-                 document.removeEventListener('touchmove', handlePointerMove);
-                 document.removeEventListener('mouseup', handlePointerUp);
-                 document.removeEventListener('touchend', handlePointerUp);
-                 document.removeEventListener('mouseleave', handlePointerUp);
-            }
-
-            initialDistance = getDistance(event.touches[0], event.touches[1]);
-            const midpoint = getMidpoint(event.touches[0], event.touches[1]);
-            lastScale = currentScale;
-            lastTranslateX = translateX;
-            lastTranslateY = translateY;
-            pinchCenterX = midpoint.x;
-            pinchCenterY = midpoint.y;
-            // 핀치 중에는 document 레벨 리스너 불필요 (move/up에서 isPinching으로 분기)
-
-            return; // 핀치 시작 처리 후 종료
+            event.preventDefault(); isPinching = true; isPanning = false; isDragging = false;
+            if (pointerDown) { console.log("[Pinch Start] Clearing single touch state (pointerDown=false)"); pointerDown = false; /* ... 리스너 제거 ... */ document.removeEventListener('mousemove', handlePointerMove); document.removeEventListener('touchmove', handlePointerMove); document.removeEventListener('mouseup', handlePointerUp); document.removeEventListener('touchend', handlePointerUp); document.removeEventListener('mouseleave', handlePointerUp); }
+            initialDistance = getDistance(event.touches[0], event.touches[1]); const midpoint = getMidpoint(event.touches[0], event.touches[1]);
+            lastScale = currentScale; lastTranslateX = translateX; lastTranslateY = translateY; pinchCenterX = midpoint.x; pinchCenterY = midpoint.y; return;
         }
 
-        // --- 싱글 터치 시작 처리 ---
-        // (isPinching이 false이고, 핀치 시작 조건도 아닐 때 실행됨)
+        if (pointerDown) { console.log("[PointerDown] Ignored: Already single-touching (pointerDown is true)."); return; }
+        if (event.type === 'touchstart' && event.touches.length !== 1) { console.log("[PointerDown] Ignored: Not a single touch start (touches:", event.touches.length, ")"); return; }
 
-        // 이미 다른 싱글 터치가 진행 중인지 확인 (이론상 불필요하지만 방어 코드)
-        if (pointerDown) {
-            console.log("[PointerDown] Ignored: Already single-touching (pointerDown is true).");
-            return;
-        }
-
-        // 터치 시작 시 손가락 개수 확인 (3개 이상 터치 무시)
-        if (event.type === 'touchstart' && event.touches.length !== 1) {
-             console.log("[PointerDown] Ignored: Not a single touch start (touches:", event.touches.length, ")");
-             return;
-        }
-
-        // 여기가 싱글 터치 시작 지점
-        pointerDown = true;
-        isDragging = false;
-        isPanning = false;
-        dragStartTime = Date.now();
-        clearTimeout(clickTimeoutId);
+        pointerDown = true; isDragging = false; isPanning = false; dragStartTime = Date.now(); clearTimeout(clickTimeoutId);
         console.log(">>> Single Touch Start (pointerDown=true) <<<");
-
-        const touch = event.type.startsWith('touch');
-        startX = touch ? event.touches[0].clientX : event.clientX;
-        currentX = startX;
-        clickStartX = startX;
-        clickStartY = touch ? event.touches[0].clientY : event.clientY;
-
-        if (currentScale > 1) { // 확대 상태면 패닝 시작
-            console.log("Starting Panning (isPanning=true)");
-            isPanning = true;
-            panStartX = clickStartX;
-            panStartY = clickStartY;
-            lastTranslateX = translateX;
-            lastTranslateY = translateY;
-            if (viewerImage) viewerImage.classList.add('panning');
-        } else { // 확대 안됐으면 스와이프/클릭 준비
-             console.log("Ready for Swipe/Click (isDragging=false)");
-             isDragging = false;
-        }
-
-        // 싱글 터치 이동/종료를 위한 공통 리스너 추가
+        const touch = event.type.startsWith('touch'); startX = touch ? event.touches[0].clientX : event.clientX; currentX = startX; clickStartX = startX; clickStartY = touch ? event.touches[0].clientY : event.clientY;
+        if (currentScale > 1) { console.log("Starting Panning (isPanning=true)"); isPanning = true; panStartX = clickStartX; panStartY = clickStartY; lastTranslateX = translateX; lastTranslateY = translateY; if (viewerImage) viewerImage.classList.add('panning'); }
+        else { console.log("Ready for Swipe/Click (isDragging=false)"); isDragging = false; }
         console.log("[PointerDown] Adding document listeners for single touch");
-        document.addEventListener('mousemove', handlePointerMove);
-        document.addEventListener('touchmove', handlePointerMove, { passive: false });
-        document.addEventListener('mouseup', handlePointerUp);
-        document.addEventListener('touchend', handlePointerUp);
-        document.addEventListener('mouseleave', handlePointerUp);
+        document.addEventListener('mousemove', handlePointerMove); document.addEventListener('touchmove', handlePointerMove, { passive: false }); document.addEventListener('mouseup', handlePointerUp); document.addEventListener('touchend', handlePointerUp); document.addEventListener('mouseleave', handlePointerUp);
     }
-    // ▲▲▲ 최종 수정 handlePointerDown 함수 ▲▲▲
+    // ▲▲▲ handlePointerDown 함수 (상태 체크 우선 적용) ▲▲▲
 
     // ▼▼▼ handlePointerMove 함수에 로그 추가 ▼▼▼
     function handlePointerMove(event) {
-        // console.log('[Pointer Move]', 'Type:', event.type, 'Touches:', event.touches ? event.touches.length : 0, 'States:', { isPinching, isPanning, isDragging, pointerDown }); // 필요시 주석 해제
         if (isPinching && event.type === 'touchmove' && event.touches.length === 2) {
-            // console.log(">>> Pinch Move Detected! <<<"); // 너무 많이 찍힐 수 있음
-            event.preventDefault(); const currentDistance = getDistance(event.touches[0], event.touches[1]); if (initialDistance === 0) return; let scale = (currentDistance / initialDistance) * lastScale; scale = Math.max(minScale, Math.min(maxScale, scale));
+            event.preventDefault(); const currentDistance = getDistance(event.touches[0], event.touches[1]); if (initialDistance <= 0) { console.warn("Initial distance is 0, skipping scale calculation."); return; } /* 0으로 나누기 방지 */ let scale = (currentDistance / initialDistance) * lastScale; scale = Math.max(minScale, Math.min(maxScale, scale));
             console.log("[Pinch Move] Calculated Scale:", scale, "Previous Scale:", currentScale); // 스케일 변화 로그
             currentScale = scale; applyTransform(); return;
         }
         if (!pointerDown) return;
         const touch = event.type.startsWith('touch'); const currentMoveX = touch ? event.touches[0].clientX : event.clientX; const currentMoveY = touch ? event.touches[0].clientY : event.clientY;
-        if (isPanning) {
-            // console.log(">>> Panning Move! <<<"); // 너무 많이 찍힐 수 있음
-            event.preventDefault(); translateX = lastTranslateX + (currentMoveX - panStartX); translateY = lastTranslateY + (currentMoveY - panStartY); applyTransform();
-        } else {
-             if (!isDragging) { const moveX = Math.abs(currentMoveX - clickStartX); const moveY = Math.abs(currentMoveY - clickStartY); if (moveX > dragStartThreshold || moveY > dragStartThreshold) { isDragging = true; console.log(">>> Dragging Start (isDragging=true) <<<"); } } // 드래그 시작 로그
-             if (isDragging) currentX = currentMoveX;
-        }
+        if (isPanning) { event.preventDefault(); translateX = lastTranslateX + (currentMoveX - panStartX); translateY = lastTranslateY + (currentMoveY - panStartY); applyTransform(); }
+        else { if (!isDragging) { const moveX = Math.abs(currentMoveX - clickStartX); const moveY = Math.abs(currentMoveY - clickStartY); if (moveX > dragStartThreshold || moveY > dragStartThreshold) { isDragging = true; console.log(">>> Dragging Start (isDragging=true) <<<"); } } if (isDragging) currentX = currentMoveX; }
     }
     // ▲▲▲ handlePointerMove 함수에 로그 추가 ▲▲▲
 
-    // ▼▼▼ handlePointerUp 함수에 로그 추가 (이전 최종 버전 유지) ▼▼▼
+    // ▼▼▼ handlePointerUp 재수정 (리스너 제거 우선, 상태 리셋 명확화) ▼▼▼
     function handlePointerUp(event) {
         const isTouchEnd = event.type === 'touchend';
-        console.log('[PointerUp START]', 'Type:', event.type, 'Touches:', event.touches ? event.touches.length : 0, 'States:', { isPinching, isPanning, isDragging, pointerDown }); // 시작 로그
+        console.log('[PointerUp START]', 'Type:', event.type, 'Touches:', event.touches ? event.touches.length : 0, 'States:', { isPinching, isPanning, isDragging, pointerDown });
+
+        // *** 중요: 리스너를 먼저 제거하여 이벤트 중복/간섭 방지 ***
+        // console.log("[PointerUp] Removing document listeners first");
+        document.removeEventListener('mousemove', handlePointerMove);
+        document.removeEventListener('touchmove', handlePointerMove);
+        document.removeEventListener('mouseup', handlePointerUp);
+        document.removeEventListener('touchend', handlePointerUp);
+        document.removeEventListener('mouseleave', handlePointerUp);
 
         let pinchJustEnded = false;
+        let singleTouchJustEnded = false;
+
+        // --- 핀치 종료 처리 ---
         if (isPinching) {
-            console.log(">>> Pinch End Detected! Setting isPinching=false <<<"); // 핀치 종료 로그
-            isPinching = false; pinchJustEnded = true;
-            if (currentScale > 1) { console.log("[Pinch End] Saving last translate:", { lastTranslateX: translateX, lastTranslateY: translateY }); lastTranslateX = translateX; lastTranslateY = translateY; }
-            else { console.log("[Pinch End] Scale <= 1, Resetting transform."); translateX = 0; translateY = 0; lastTranslateX = 0; lastTranslateY = 0; applyTransform(); }
-        }
+            console.log(">>> Pinch End Detected! Setting isPinching=false <<<");
+            isPinching = false; // 상태 해제
+            pinchJustEnded = true;
 
-        if (pointerDown || pinchJustEnded) {
-             if (pointerDown) { console.log(">>> Single Touch End (Setting pointerDown=false) <<<"); pointerDown = false; } // 싱글 터치 종료 로그
-            const wasDragging = isDragging; const wasPanning = isPanning;
+            // 핀치 종료 후 상태 저장/리셋
+            if (currentScale > 1) {
+                console.log("[Pinch End] Saving last translate:", { lastTranslateX: translateX, lastTranslateY: translateY });
+                lastTranslateX = translateX;
+                lastTranslateY = translateY;
+            } else {
+                console.log("[Pinch End] Scale <= 1, Resetting transform.");
+                translateX = 0; translateY = 0;
+                lastTranslateX = 0; lastTranslateY = 0;
+                applyTransform(); // 리셋 적용
+            }
+            // 핀치 종료 시 다른 플래그도 초기화 (pointerDown은 이미 false여야 함)
             isDragging = false; isPanning = false;
-            console.log("[PointerUp] Removing document listeners"); // 리스너 제거 로그
-            document.removeEventListener('mousemove', handlePointerMove); document.removeEventListener('touchmove', handlePointerMove); document.removeEventListener('mouseup', handlePointerUp); document.removeEventListener('touchend', handlePointerUp); document.removeEventListener('mouseleave', handlePointerUp);
-            if (!viewerImage) { console.log("[PointerUp] No viewerImage, returning."); return; }
-            viewerImage.classList.remove('panning');
-
-            if (!pinchJustEnded) { // 싱글 터치 후속 동작
-                const dragDuration = Date.now() - dragStartTime;
-                const endX = isTouchEnd ? (event.changedTouches && event.changedTouches[0] ? event.changedTouches[0].clientX : currentX) : event.clientX;
-                const endY = isTouchEnd ? (event.changedTouches && event.changedTouches[0] ? event.changedTouches[0].clientY : clickStartY) : event.clientY;
-                const totalMoveX = Math.abs(endX - clickStartX); const totalMoveY = Math.abs(endY - clickStartY);
-
-                if (wasPanning) { console.log("[Single Touch End] Was Panning. Saving last translate:", { lastTranslateX: translateX, lastTranslateY: translateY }); lastTranslateX = translateX; lastTranslateY = translateY; }
-                else if (currentScale <= 1) {
-                    console.log("[Single Touch End] Scale <= 1. Checking for click/swipe."); // 클릭/스와이프 확인 로그
-                    if (totalMoveX < clickMoveThreshold && totalMoveY < clickMoveThreshold && dragDuration < clickTimeThreshold) {
-                        console.log(">>> Click Detected! <<<"); // 클릭 감지 로그
-                        clearTimeout(clickTimeoutId); clickTimeoutId = setTimeout(() => { console.log("Executing nextImage() after debounce"); nextImage(); }, clickDebounceTime);
-                    } else if (wasDragging && Math.abs(currentX - startX) >= swipeThreshold) {
-                         console.log(">>> Swipe Detected! <<<", currentX - startX > 0 ? "Swipe Right (Prev)" : "Swipe Left (Next)"); // 스와이프 감지 로그
-                         clearTimeout(clickTimeoutId); if (currentX - startX > 0) prevImage(); else nextImage();
-                    } else { console.log("[Single Touch End] No click or swipe detected."); } // 클릭/스와이프 아님 로그
-                } else { console.log("[Single Touch End] Scale > 1, but was not panning? Saving last translate."); lastTranslateX = translateX; lastTranslateY = translateY; }
-            } else { console.log("[PointerUp] Processed pinch end. No further action needed."); } // 핀치 종료 후 추가 동작 없음 로그
-        } else if (!isPinching) {
-             console.log("[PointerUp] Ignored: Neither pinch nor single touch was active."); // 무시 로그
-             document.removeEventListener('mousemove', handlePointerMove); document.removeEventListener('touchmove', handlePointerMove); document.removeEventListener('mouseup', handlePointerUp); document.removeEventListener('touchend', handlePointerUp); document.removeEventListener('mouseleave', handlePointerUp);
         }
-        console.log('[PointerUp END]', 'Final States:', { isPinching, isPanning, isDragging, pointerDown }); // 종료 로그
+        // --- 싱글 터치 종료 처리 ---
+        else if (pointerDown) {
+            console.log(">>> Single Touch End (Setting pointerDown=false) <<<");
+            pointerDown = false; // 상태 해제
+            singleTouchJustEnded = true;
+
+            const wasDragging = isDragging; // 이전 상태 저장
+            const wasPanning = isPanning;
+
+            // 다른 상태 플래그 리셋
+            isDragging = false;
+            isPanning = false;
+
+            if (!viewerImage) { console.log("[PointerUp] No viewerImage, returning."); return; }
+            viewerImage.classList.remove('panning'); // CSS 클래스 정리
+
+            // 클릭/스와이프 판정 로직 (pinchJustEnded가 아닐 때만 실행) -> 여기서는 항상 !pinchJustEnded
+            const dragDuration = Date.now() - dragStartTime;
+            const endX = isTouchEnd ? (event.changedTouches && event.changedTouches[0] ? event.changedTouches[0].clientX : currentX) : event.clientX;
+            const endY = isTouchEnd ? (event.changedTouches && event.changedTouches[0] ? event.changedTouches[0].clientY : clickStartY) : event.clientY;
+            const totalMoveX = Math.abs(endX - clickStartX);
+            const totalMoveY = Math.abs(endY - clickStartY);
+
+            if (wasPanning) {
+                 console.log("[Single Touch End] Was Panning. Saving last translate:", { lastTranslateX: translateX, lastTranslateY: translateY });
+                 lastTranslateX = translateX;
+                 lastTranslateY = translateY;
+            } else if (currentScale <= 1) { // 확대 안된 상태
+                console.log("[Single Touch End] Scale <= 1. Checking for click/swipe.");
+                if (totalMoveX < clickMoveThreshold && totalMoveY < clickMoveThreshold && dragDuration < clickTimeThreshold) { // 클릭 판정
+                     console.log(">>> Click Detected! <<<");
+                     clearTimeout(clickTimeoutId); clickTimeoutId = setTimeout(() => { console.log("Executing nextImage() after debounce"); nextImage(); }, clickDebounceTime);
+                } else if (wasDragging && Math.abs(currentX - startX) >= swipeThreshold) { // 스와이프 판정
+                      console.log(">>> Swipe Detected! <<<", currentX - startX > 0 ? "Swipe Right (Prev)" : "Swipe Left (Next)");
+                      clearTimeout(clickTimeoutId); if (currentX - startX > 0) prevImage(); else nextImage();
+                } else { console.log("[Single Touch End] No click or swipe detected."); }
+            } else { // 확대된 상태였는데 패닝이 아니었다?
+                 console.log("[Single Touch End] Scale > 1, but was not panning? Saving last translate.");
+                 lastTranslateX = translateX;
+                 lastTranslateY = translateY;
+            }
+
+        } else {
+             // isPinching도 false이고 pointerDown도 false인 경우 (리스너가 제거되지 않은 예외 케이스)
+             console.log("[PointerUp] Ignored: Neither pinch nor single touch was active.");
+        }
+
+        console.log('[PointerUp END]', 'Final States:', { isPinching, isPanning, isDragging, pointerDown });
     }
-    // ▲▲▲ handlePointerUp 함수에 로그 추가 ▲▲▲
+    // ▲▲▲ handlePointerUp 재수정 ▲▲▲
+
 
     // --- 뷰어 열기/닫기, 이미지 넘김, 키보드 이벤트 함수 ---
     function openFullscreen(index) { /* 내용 동일, 생략 */ if (isFullscreen) return; currentIndex = index; isFullscreen = true; const imageUrl = imageFiles[currentIndex]; if (!imageUrl) { console.error("Invalid image index:", index); isFullscreen = false; return; } bodyElement.classList.add('fullscreen-active'); fullscreenViewer = document.createElement('div'); fullscreenViewer.classList.add('fullscreen-viewer'); fullscreenViewer.innerHTML = `<img src="${imageUrl}" alt="${workConfig.title || 'Image'} - Image ${currentIndex + 1}">`; viewerImage = fullscreenViewer.querySelector('img'); viewerImage.addEventListener('mousedown', handlePointerDown); viewerImage.addEventListener('touchstart', handlePointerDown, { passive: false }); viewerImage.onload = () => { preloadImage(currentIndex + 1); preloadImage(currentIndex - 1); }; viewerImage.onerror = () => { console.error("Failed load:", imageUrl); viewerImage.alt="이미지 로드 실패"; }; fullscreenViewer.addEventListener('click', handleViewerClick); counterContainer = document.createElement('div'); counterContainer.className = 'counter-container'; counterElement = document.createElement("div"); counterElement.className = "fancybox__counter"; counterElement.addEventListener('click', togglePageJumpUI); counterContainer.appendChild(counterElement); fullscreenContainer.appendChild(fullscreenViewer); fullscreenContainer.appendChild(counterContainer); updateCounter(); document.addEventListener('keydown', handleKeydown); requestAnimationFrame(() => { if (fullscreenViewer) fullscreenViewer.classList.add('active'); }); }

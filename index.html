@@ -1,4 +1,3 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -6,34 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Gallery</title>
   <style>
-    /* --- 기본 스타일 (기존 유지) --- */
+    /* --- 기본 스타일 --- */
     body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 1rem; }
     h1 { text-align: center; cursor: pointer; /* 제목 클릭 시 전체 보기 */ }
-    .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; max-width: 1000px; margin: auto; }
-    .work { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.2s; }
-    .work a { text-decoration: none; color: inherit; display: block; }
+    .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; max-width: 1000px; margin: auto; min-height: 300px; /* 내용 없을 때 최소 높이 */}
+    .work { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.2s; display: flex; flex-direction: column; }
+    .work a { text-decoration: none; color: inherit; display: block; flex-grow: 1; /* 링크가 카드 전체 차지 */}
     .work:hover { transform: scale(1.02); }
     .work .info-top { padding: 0.75rem; text-align: left; }
     .work .title { font-weight: bold; font-size: 0.95em; display: block; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .work .author { font-size: 0.85em; color: #555; cursor: pointer; display: inline-block; }
     .work .author:hover { text-decoration: underline; color: #007bff; }
-    .work img { width: 100%; height: 250px; object-fit: cover; display: block; border-top: 1px solid #eee; }
+    .work img { width: 100%; height: 250px; object-fit: cover; display: block; border-top: 1px solid #eee; margin-top: auto; /* 이미지를 아래로 밀착 */}
 
-    /* --- 검색창 스타일 (추가) --- */
+    /* --- 검색창 스타일 --- */
     #search-container {
-        max-width: 1000px; /* 갤러리 너비와 맞춤 */
-        margin: 1rem auto; /* 위아래 간격 및 중앙 정렬 */
+        max-width: 1000px;
+        margin: 1rem auto;
         padding: 10px;
         background-color: #eee;
         border-radius: 5px;
-        text-align: center; /* 내부 요소 중앙 정렬 */
+        text-align: center;
     }
     #search-input {
         padding: 8px;
         margin-right: 5px;
         border: 1px solid #ccc;
         border-radius: 3px;
-        min-width: 250px; /* 최소 너비 지정 */
+        min-width: 250px;
     }
     #search-button, #clear-search-button {
         padding: 8px 12px;
@@ -42,39 +41,80 @@
         border-radius: 3px;
         background-color: #007bff;
         color: white;
-        vertical-align: middle; /* 입력 필드와 수직 정렬 */
+        vertical-align: middle;
     }
     #clear-search-button {
         background-color: #6c757d;
         margin-left: 5px;
-        /* display: none; */ /* JavaScript로 제어 */
     }
 
-    /* --- 필터링/검색 결과 안내 메시지 스타일 (기존 + 수정) --- */
+    /* --- 필터링/검색 결과 안내 메시지 스타일 --- */
     .info-message { text-align: center; margin: 1rem 0; font-weight: bold; }
     .info-message button { margin-left: 0.5rem; padding: 5px 10px; cursor: pointer; }
-    #no-results-message { text-align: center; margin-top: 20px; color: #777; } /* 검색 결과 없을 때 */
+    #no-results-message { text-align: center; margin-top: 20px; color: #777; padding: 2rem;} /* 검색 결과 없을 때 */
 
+    /* --- 페이지네이션 스타일 --- */
+    .pagination {
+        text-align: center;
+        margin-top: 2rem;
+        padding: 1rem 0;
+        user-select: none; /* 드래그 선택 방지 */
+    }
+    .pagination button {
+        background-color: #fff;
+        border: 1px solid #ccc;
+        padding: 0.5rem 0.75rem;
+        margin: 0 0.2rem;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: background-color 0.2s, color 0.2s;
+    }
+    .pagination button:hover:not(:disabled) {
+        background-color: #eee;
+    }
+    .pagination button.active {
+        background-color: #007bff;
+        color: white;
+        border-color: #007bff;
+        font-weight: bold;
+        cursor: default;
+    }
+    .pagination button:disabled:not(.active) { /* 현재 페이지 아닌 비활성 버튼 */
+        background-color: #e9ecef;
+        color: #6c757d;
+        cursor: not-allowed;
+        opacity: 0.65;
+    }
+    /* 페이지 번호가 많을 때 생략(...) 표시 스타일 */
+    .pagination .ellipsis {
+        display: inline-block;
+        padding: 0.5rem 0.3rem;
+        margin: 0 0.2rem;
+        color: #6c757d;
+    }
   </style>
 </head>
 <body>
   <h1 id="main-title">Local Hitomi</h1>
 
-  <!-- ▼▼▼ 검색창 추가 ▼▼▼ -->
+  <!-- 검색창 -->
   <div id="search-container">
       <input type="search" id="search-input" placeholder="제목 또는 작가 검색...">
       <button id="search-button">검색</button>
-      <button id="clear-search-button" style="display: none;">검색 지우기</button> <!-- 초기 숨김 -->
+      <button id="clear-search-button" style="display: none;">검색 지우기</button>
   </div>
-  <!-- ▲▲▲ 검색창 추가 ▲▲▲ -->
 
-  <!-- 필터링 정보 표시 영역 (기존 유지) -->
+  <!-- 필터링 정보 표시 영역 -->
   <div id="filter-info-container"></div>
 
-  <!-- 갤러리 컨테이너 (기존 유지) -->
+  <!-- 갤러리 컨테이너 -->
   <div class="gallery" id="gallery-container">
-    <!-- 작품 목록은 JS로 채워짐 -->
-    <!-- 검색 결과 없음 메시지는 JS로 채워짐 -->
+    <!-- 작품 목록 및 결과 없음 메시지는 JS로 채워짐 -->
+  </div>
+
+  <!-- 페이지네이션 컨트롤 영역 -->
+  <div id="pagination-controls" class="pagination">
+      <!-- 페이지 번호 버튼은 JS로 채워짐 -->
   </div>
 
   <!-- *** 생성된 작품 목록 파일을 먼저 로드 *** -->
@@ -82,44 +122,47 @@
 
   <script>
     // ========================================
-    // === DOM 요소 선택 (검색 관련 요소 추가) ===
+    // === 전역 변수 및 설정 ===
     // ========================================
     const galleryContainer = document.getElementById('gallery-container');
     const mainTitle = document.getElementById('main-title');
     const filterInfoContainer = document.getElementById('filter-info-container');
-    const searchInput = document.getElementById('search-input'); // 추가
-    const searchButton = document.getElementById('search-button'); // 추가
-    const clearSearchButton = document.getElementById('clear-search-button'); // 추가
+    const searchInput = document.getElementById('search-input');
+    const searchButton = document.getElementById('search-button');
+    const clearSearchButton = document.getElementById('clear-search-button');
+    const paginationControls = document.getElementById('pagination-controls');
 
-    let currentFilter = null; // 현재 필터링 중인 작가 이름 저장 (기존 유지)
+    const itemsPerPage = 16; // 페이지당 항목 수
+    let currentPage = 1; // 현재 페이지 번호
+    let currentDataSet = []; // 현재 화면에 표시할 전체 데이터셋
+    let currentFilter = null; // 현재 필터링 중인 작가 이름
 
     // ========================================
-    // === 갤러리 렌더링 함수 (검색 결과 없음 메시지 처리 추가) ===
+    // === 갤러리 렌더링 ===
     // ========================================
-    function renderGallery(dataToRender) {
-      galleryContainer.innerHTML = ''; // 기존 갤러리 내용 비우기
-      updateFilterInfo(); // 필터링 정보 업데이트 (기존 유지)
+    function renderGallery() {
+      galleryContainer.innerHTML = '';
+      updateFilterInfo();
 
-      // worksData 로드 확인 및 데이터 유무 확인
       if (typeof worksData === 'undefined' || !Array.isArray(worksData)) {
-          galleryContainer.innerHTML = '<p id="no-results-message">작품 데이터를 불러올 수 없습니다. 빌드 스크립트를 실행하세요.</p>';
-          return;
-      }
-      if (!dataToRender || dataToRender.length === 0) {
-           // 결과가 없는 이유 구분 (작가 필터링 중인지, 검색 중인지, 그냥 없는지)
-           let message = '표시할 작품이 없습니다.';
-           if (currentFilter) { // 작가 필터링 중 결과 없음
-               message = `<strong>'${currentFilter}'</strong> 작가의 작품이 없습니다.`;
-           } else if (searchInput.value.trim()) { // 검색 중 결과 없음
-               message = `<strong>'${searchInput.value.trim()}'</strong>에 대한 검색 결과가 없습니다.`;
-           }
-           galleryContainer.innerHTML = `<p id="no-results-message">${message}</p>`;
-           return;
+        galleryContainer.innerHTML = '<p id="no-results-message">작품 데이터를 불러올 수 없습니다. 빌드 스크립트를 실행하세요.</p>';
+        renderPaginationControls();
+        return;
       }
 
-      // 작품 데이터 렌더링 (기존 로직 유지)
-      dataToRender.forEach(work => {
-        try {
+      const totalItems = currentDataSet.length;
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      const pageData = currentDataSet.slice(startIndex, endIndex);
+
+      if (pageData.length === 0) {
+        let message = '표시할 작품이 없습니다.';
+        if (currentFilter) message = `<strong>'${currentFilter}'</strong> 작가의 작품이 없습니다.`;
+        else if (searchInput.value.trim()) message = `<strong>'${searchInput.value.trim()}'</strong>에 대한 검색 결과가 없습니다.`;
+        galleryContainer.innerHTML = `<p id="no-results-message">${message}</p>`;
+      } else {
+        pageData.forEach(work => {
+          try {
             const workDiv = document.createElement('div');
             workDiv.className = 'work';
             const link = document.createElement('a');
@@ -134,169 +177,220 @@
             authorSpan.className = 'author';
             authorSpan.textContent = work.author;
             authorSpan.dataset.author = work.author;
-            authorSpan.addEventListener('click', handleAuthorClick); // 리스너 직접 추가 (기존 방식)
+            authorSpan.addEventListener('click', handleAuthorClick);
             infoDiv.appendChild(titleSpan);
             infoDiv.appendChild(authorSpan);
             const img = document.createElement('img');
-            img.src = `works/${work.id}/${work.firstImage}`;
+            // 이미지 경로 오류 방지: work.firstImage가 null이나 undefined가 아닌지 확인
+            if (work.firstImage) {
+                img.src = `works/${work.id}/${work.firstImage}`;
+            } else {
+                img.src = ''; // 대체 이미지 경로 또는 빈 값
+                console.warn(`Work item ${work.id} has no firstImage defined.`);
+            }
             img.alt = `${work.title} / ${work.author}`;
             img.loading = 'lazy';
-            img.onerror = function() {
-                console.error("Failed to load image:", img.src);
-            };
+            img.onerror = function() { console.error("Failed to load image:", this.src); this.style.display='none'; /* 실패 시 숨김 */};
             link.appendChild(infoDiv);
             link.appendChild(img);
             workDiv.appendChild(link);
             galleryContainer.appendChild(workDiv);
-        } catch (error) {
-             console.error("Error rendering work item:", work, error);
-        }
-      });
+          } catch (error) {
+            console.error("Error rendering work item:", work, error);
+          }
+        });
+      }
+      renderPaginationControls();
     }
 
     // ========================================
-    // === 작가 이름 클릭 핸들러 (기존 유지) ===
+    // === 페이지네이션 컨트롤 렌더링 (개선된 버전) ===
+    // ========================================
+    function renderPaginationControls() {
+      paginationControls.innerHTML = '';
+      if (typeof worksData === 'undefined' || !Array.isArray(currentDataSet)) return;
+
+      const totalItems = currentDataSet.length;
+      const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+      if (totalPages <= 1) return; // 페이지 1개 이하면 표시 안 함
+
+      // --- 버튼 생성 함수 ---
+      const createButton = (text, pageNum, isDisabled = false, isCurrent = false, isEllipsis = false) => {
+          if (isEllipsis) {
+              const span = document.createElement('span');
+              span.className = 'ellipsis';
+              span.textContent = '...';
+              return span;
+          }
+          const button = document.createElement('button');
+          button.textContent = text;
+          button.disabled = isDisabled || isCurrent;
+          if (isCurrent) button.classList.add('active');
+          button.onclick = () => changePage(pageNum);
+          return button;
+      };
+
+      // --- 이전 버튼 ---
+      paginationControls.appendChild(createButton('이전', currentPage - 1, currentPage === 1));
+
+      // --- 페이지 번호 버튼 로직 ---
+      const maxPageButtons = 5; // 앞뒤 현재페이지 포함 최대 표시 버튼 수 (홀수 권장)
+      let startPage, endPage;
+
+      if (totalPages <= maxPageButtons) {
+          startPage = 1;
+          endPage = totalPages;
+      } else {
+          const maxPagesBeforeCurrent = Math.floor((maxPageButtons - 1) / 2);
+          const maxPagesAfterCurrent = Math.ceil((maxPageButtons - 1) / 2);
+
+          if (currentPage <= maxPagesBeforeCurrent) {
+              startPage = 1;
+              endPage = maxPageButtons;
+          } else if (currentPage + maxPagesAfterCurrent >= totalPages) {
+              startPage = totalPages - maxPageButtons + 1;
+              endPage = totalPages;
+          } else {
+              startPage = currentPage - maxPagesBeforeCurrent;
+              endPage = currentPage + maxPagesAfterCurrent;
+          }
+      }
+
+      // 첫 페이지 버튼 및 생략 (...)
+      if (startPage > 1) {
+          paginationControls.appendChild(createButton('1', 1));
+          if (startPage > 2) {
+              paginationControls.appendChild(createButton('...', 0, false, false, true)); // 생략 기호
+          }
+      }
+
+      // 중간 페이지 번호 버튼들
+      for (let i = startPage; i <= endPage; i++) {
+          paginationControls.appendChild(createButton(i, i, false, i === currentPage));
+      }
+
+      // 마지막 페이지 버튼 및 생략 (...)
+      if (endPage < totalPages) {
+          if (endPage < totalPages - 1) {
+              paginationControls.appendChild(createButton('...', 0, false, false, true)); // 생략 기호
+          }
+          paginationControls.appendChild(createButton(totalPages, totalPages));
+      }
+
+      // --- 다음 버튼 ---
+      paginationControls.appendChild(createButton('다음', currentPage + 1, currentPage === totalPages));
+    }
+
+
+    // ========================================
+    // === 페이지 변경 ===
+    // ========================================
+    function changePage(newPage) {
+      const totalPages = Math.ceil(currentDataSet.length / itemsPerPage);
+      if (newPage >= 1 && newPage <= totalPages) {
+        currentPage = newPage;
+        renderGallery();
+        // 페이지 상단 또는 갤러리 상단으로 스크롤
+        // window.scrollTo(0, 0);
+        const galleryTop = galleryContainer.offsetTop - 20; // 갤러리 상단 위치 (-20px 여유)
+        window.scrollTo({ top: galleryTop, behavior: 'smooth' }); // 부드럽게 이동
+      }
+    }
+
+    // ========================================
+    // === 데이터 필터링/검색/전체보기 ===
+    // ========================================
+    function updateDataSet(newDataSet) {
+      currentDataSet = newDataSet;
+      currentPage = 1; // 데이터셋 변경 시 항상 1페이지로
+      renderGallery();
+    }
+
+    function filterGalleryByAuthor(authorName) {
+      currentFilter = authorName;
+      searchInput.value = '';
+      clearSearchButton.style.display = 'none';
+      if (typeof worksData !== 'undefined') {
+        updateDataSet(worksData.filter(work => work.author === authorName));
+      } else { console.error("Cannot filter: worksData is not defined."); }
+    }
+
+    function performSearch() {
+      const searchTerm = searchInput.value.trim().toLowerCase();
+      currentFilter = null;
+      if (typeof worksData === 'undefined') {
+          console.error("Cannot search: worksData is not defined."); return;
+      }
+      if (!searchTerm) { showAllWorks(); return; }
+
+      const filtered = worksData.filter(work =>
+          work.title.toLowerCase().includes(searchTerm) || work.author.toLowerCase().includes(searchTerm)
+      );
+      updateDataSet(filtered);
+      clearSearchButton.style.display = 'inline-block';
+    }
+
+    function showAllWorks() {
+      currentFilter = null;
+      searchInput.value = '';
+      clearSearchButton.style.display = 'none';
+      if (typeof worksData !== 'undefined') {
+        updateDataSet(worksData);
+      } else { console.error("Cannot show all: worksData is not defined."); }
+    }
+
+    // ========================================
+    // === 이벤트 핸들러 ===
     // ========================================
     function handleAuthorClick(event) {
       event.preventDefault();
       event.stopPropagation();
-      const authorName = event.target.dataset.author;
-      if (authorName) {
-        filterGalleryByAuthor(authorName);
-      }
+      filterGalleryByAuthor(event.target.dataset.author);
     }
 
     // ========================================
-    // === 작가별 필터링 함수 (검색 상태 초기화 추가) ===
-    // ========================================
-    function filterGalleryByAuthor(authorName) {
-      currentFilter = authorName; // 현재 작가 필터 상태 저장
-      searchInput.value = ''; // 검색창 비우기
-      clearSearchButton.style.display = 'none'; // 검색 지우기 버튼 숨기기
-
-      if (typeof worksData !== 'undefined') {
-          const filteredData = worksData.filter(work => work.author === authorName);
-          renderGallery(filteredData);
-      } else {
-          console.error("Cannot filter: worksData is not defined.");
-      }
-    }
-
-    // ========================================
-    // === 검색 실행 함수 (추가) ===
-    // ========================================
-    function performSearch() {
-        const searchTerm = searchInput.value.trim().toLowerCase();
-        currentFilter = null; // 검색 시에는 작가 필터 해제
-
-        // worksData 로드 확인
-        if (typeof worksData === 'undefined') {
-            console.error("Cannot search: worksData is not defined.");
-            return;
-        }
-
-        if (!searchTerm) {
-            // 검색어가 없으면 아무것도 안 함 (사용자가 지우면 input 이벤트에서 처리)
-            // showAllWorks(); // 또는 전체 보기 호출
-            return;
-        }
-
-        // 제목 또는 작가로 필터링
-        const filteredWorks = worksData.filter(work => {
-            const titleMatch = work.title.toLowerCase().includes(searchTerm);
-            const authorMatch = work.author.toLowerCase().includes(searchTerm);
-            return titleMatch || authorMatch;
-        });
-
-        renderGallery(filteredWorks); // 검색 결과로 갤러리 다시 렌더링
-        clearSearchButton.style.display = 'inline-block'; // 검색 지우기 버튼 표시
-        updateFilterInfo(); // 작가 필터 정보가 있다면 지우기 위해 호출
-    }
-
-
-    // ========================================
-    // === 전체 목록 보기 함수 (검색 상태 초기화 추가) ===
-    // ========================================
-    function showAllWorks() {
-       currentFilter = null; // 필터 상태 해제
-       searchInput.value = ''; // 검색창 비우기
-       clearSearchButton.style.display = 'none'; // 검색 지우기 버튼 숨기기
-
-       if (typeof worksData !== 'undefined') {
-            renderGallery(worksData);
-       } else {
-            console.error("Cannot show all: worksData is not defined.");
-       }
-    }
-
-     // ========================================
-    // === 필터링 정보 표시 업데이트 (기존 유지) ===
+    // === 필터링 정보 표시 업데이트 ===
     // ========================================
     function updateFilterInfo() {
-        filterInfoContainer.innerHTML = ''; // 초기화
-        if (currentFilter) { // 작가 필터링 중일 때만 정보 표시
-            const infoP = document.createElement('p');
-            infoP.className = 'info-message'; // CSS 클래스명 변경 (선택 사항)
-            infoP.innerHTML = `<strong>${currentFilter}</strong> 작가 작품만 보는 중`;
-
-            const showAllButton = document.createElement('button');
-            showAllButton.textContent = '전체 보기';
-            showAllButton.onclick = showAllWorks;
-
-            infoP.appendChild(showAllButton);
-            filterInfoContainer.appendChild(infoP);
-        }
+      filterInfoContainer.innerHTML = '';
+      if (currentFilter) {
+        const infoP = document.createElement('p');
+        infoP.className = 'info-message';
+        infoP.innerHTML = `<strong>${currentFilter}</strong> 작가 작품만 보는 중`;
+        const showAllButton = document.createElement('button');
+        showAllButton.textContent = '전체 보기';
+        showAllButton.onclick = showAllWorks;
+        infoP.appendChild(showAllButton);
+        filterInfoContainer.appendChild(infoP);
+      }
     }
 
     // ========================================
-    // === 초기 갤러리 렌더링 및 이벤트 리스너 설정 (검색 관련 리스너 추가) ===
+    // === 초기화 및 이벤트 리스너 설정 ===
     // ========================================
     document.addEventListener('DOMContentLoaded', () => {
-        // 초기 갤러리 렌더링
-        if (typeof worksData !== 'undefined' && worksData.length >= 0) {
-             renderGallery(worksData);
-        } else {
-            console.error("worksData is not defined or empty! Make sure works-list.js is loaded and generated correctly.");
-            if (galleryContainer) {
-                galleryContainer.innerHTML = '<p id="no-results-message">작품 데이터를 불러올 수 없습니다. 빌드 스크립트를 실행하세요.</p>';
-            }
-        }
+      if (typeof worksData !== 'undefined' && Array.isArray(worksData)) {
+        currentDataSet = [...worksData]; // 원본 데이터 복사하여 초기 데이터셋 설정
+        renderGallery(); // 초기 렌더링 (1페이지)
+      } else {
+        console.error("worksData is not defined or not an array! Check works-list.js.");
+        if (galleryContainer) galleryContainer.innerHTML = '<p id="no-results-message">작품 데이터를 불러올 수 없습니다. 빌드 스크립트를 실행하세요.</p>';
+        renderPaginationControls(); // 페이지네이션도 비움
+      }
 
-        // 제목 클릭 시 전체 보기 (기존 유지)
-        if (mainTitle) {
-            mainTitle.addEventListener('click', showAllWorks);
-        } else {
-            console.error("mainTitle element not found!");
-        }
+      if (mainTitle) mainTitle.addEventListener('click', showAllWorks);
+      if (searchButton) searchButton.addEventListener('click', performSearch);
+      if (searchInput) {
+        searchInput.addEventListener('keypress', (event) => { if (event.key === 'Enter') performSearch(); });
+        searchInput.addEventListener('input', () => { if (searchInput.value === '') showAllWorks(); });
+        // 'search' 이벤트는 'x' 버튼 클릭 시도 감지 가능하나, input 이벤트로 대체됨
+        // searchInput.addEventListener('search', () => { if (searchInput.value === '') showAllWorks(); });
+      }
+      if (clearSearchButton) clearSearchButton.addEventListener('click', showAllWorks);
 
-        // --- 검색 관련 이벤트 리스너 (추가) ---
-        if (searchButton && searchInput && clearSearchButton) {
-            // 검색 버튼 클릭
-            searchButton.addEventListener('click', performSearch);
-
-            // 검색 입력창에서 Enter 키
-            searchInput.addEventListener('keypress', (event) => {
-                if (event.key === 'Enter') {
-                    performSearch();
-                }
-            });
-
-            // '검색 지우기' 버튼 클릭
-            clearSearchButton.addEventListener('click', showAllWorks);
-
-            // 검색 입력창 내용 변경 감지 (수동으로 지우거나, 내장 'x' 버튼 클릭 시)
-            searchInput.addEventListener('input', () => {
-                if (searchInput.value === '') {
-                    // 검색창이 비워졌으면 자동으로 전체 목록 복원
-                     showAllWorks();
-                }
-            });
-             // 'search' 이벤트는 input 이벤트와 중복될 수 있어 input으로 통합
-            // searchInput.addEventListener('search', () => { ... });
-
-        } else {
-             console.error("Search elements (input, button, clear button) not found!");
-        }
+      // 초기화 시점 확인용 로그
+      console.log('Gallery initialized.');
     });
 
   </script>

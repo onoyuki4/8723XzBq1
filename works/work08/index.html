@@ -460,14 +460,37 @@
         }
     }
     function handlePointerUp(event) {
-        if (isPinching) { // 핀치 종료
-            if (event.type === 'touchend' && event.touches.length < 2) {
-                isPinching = false;
-                if (currentScale > 1) { lastTranslateX = translateX; lastTranslateY = translateY; }
-                else { translateX = 0; translateY = 0; lastTranslateX = 0; lastTranslateY = 0; applyTransform(); }
-            } return;
+    // --- 멀티 터치 종료 (핀치) ---
+    if (isPinching) {
+        // isPinching이 true인 상태에서 pointer up 이벤트가 발생했으므로, 핀치는 끝난 것으로 간주
+        isPinching = false; // <<<--- 무조건 false로 리셋!
+
+        // 핀치 종료 후 상태 저장/리셋 로직 (기존과 동일)
+        if (currentScale > 1) {
+            lastTranslateX = translateX;
+            lastTranslateY = translateY;
+        } else { // 축소되어 1이 되면 이동 초기화
+            translateX = 0; translateY = 0;
+            lastTranslateX = 0; lastTranslateY = 0;
+            applyTransform(); // 리셋 적용
         }
-        if (!pointerDown) return; // 싱글 터치 아니면 무시
+        // 핀치 관련 처리가 끝났으므로 여기서 종료 (싱글터치 로직 실행 방지)
+        return;
+    }
+
+    // --- 싱글 터치 종료 (스와이프 또는 패닝) ---
+    if (!pointerDown) return; // 싱글 터치 시작 안됐으면 무시
+    // ... (이하 기존 싱글 터치 종료 로직 동일) ...
+    pointerDown = false;
+    const wasDragging = isDragging;
+    const wasPanning = isPanning;
+    isDragging = false;
+    isPanning = false;
+    // ... (리스너 제거 등) ...
+    if (!viewerImage) return;
+    viewerImage.classList.remove('panning');
+    // ... (클릭/스와이프 판정 로직) ...
+}
 
         pointerDown = false; const wasDragging = isDragging; const wasPanning = isPanning;
         isDragging = false; isPanning = false;

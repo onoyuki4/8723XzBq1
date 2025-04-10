@@ -2,187 +2,416 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <!-- 제목은 JS로 설정 -->
   <title>작품 뷰어</title>
   <style>
-    /* CSS 내용은 이전과 동일 */
-    body { font-family: sans-serif; padding: 1rem; background: #fff; margin: 0; } body.fullscreen-active { overflow: hidden; } .info { text-align: center; margin-bottom: 1rem; } .info h2 { margin: 0.5rem 0; } .info .author { color: #555; font-size: 0.9em; margin-top: 0.2rem;} .images { display: flex; flex-direction: column; gap: 10px; align-items: center; } .images a { display: block; width: 90%; max-width: 300px; min-height: 150px; background-color: #eee; border-radius: 8px; overflow: hidden; } .images img { display: block; width: 100%; height: auto; box-shadow: 0 0 8px rgba(0,0,0,0.1); cursor: pointer; opacity: 0; transition: opacity 0.5s ease-in-out; } .images img.lazyloaded { opacity: 1; } #fullscreen-container { position: relative; } .counter-container { position: fixed; top: 10px; right: 10px; z-index: 10002; } .fancybox__counter { font-size: 16px; background: rgba(0, 0, 0, 0.6); color: #fff; padding: 4px 10px; border-radius: 12px; user-select: none; cursor: pointer; display: inline-block; } .fullscreen-container.jump-ui-active .counter-container { opacity: 0.2; pointer-events: none; } .fullscreen-viewer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; opacity: 0; visibility: hidden; transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out; overflow: hidden; } .fullscreen-viewer.active { opacity: 1; visibility: visible; } .fullscreen-viewer img { max-width: 95%; max-height: 95%; object-fit: contain; cursor: grab; user-select: none; -webkit-user-drag: none; transition: opacity 0.2s ease-out;
-      touch-action: none; /* Hammer가 제어 */
-      transform-origin: center center;
-      transition: none; /* transform transition 제거 (Hammer가 부드럽게 처리) */
-     }
-    .page-jump-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 10001; cursor: pointer; } #page-jump-list { background-color: #333; color: #eee; padding: 10px 0; border-radius: 10px; max-height: 70vh; overflow-y: auto; display: flex; flex-direction: column; gap: 0px; cursor: default; width: 200px; scrollbar-width: thin; scrollbar-color: #666 #333; } #page-jump-list::-webkit-scrollbar { width: 6px; } #page-jump-list::-webkit-scrollbar-track { background: #333; } #page-jump-list::-webkit-scrollbar-thumb { background-color: #666; border-radius: 3px; } .page-jump-number { display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; cursor: pointer; font-weight: normal; text-align: left; transition: background-color 0.2s ease; border-bottom: 1px solid #444; font-size: 16px; } .page-jump-number:last-child { border-bottom: none; } .page-jump-number:hover { background-color: #444; } .page-jump-number::after { content: ''; display: inline-block; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #888; margin-left: 15px; position: relative; box-sizing: border-box; } .page-jump-number.current { font-weight: bold; } .page-jump-number.current::after { border-color: #eee; background-color: #eee; }
+    /* --- 기본 스타일 --- */
+    body { font-family: sans-serif; padding: 1rem; background: #fff; margin: 0; }
+    body.fullscreen-active { overflow: hidden; }
+.info { text-align: center; margin-bottom: 1rem; }
+.info h2 { margin: 0.5rem 0; }
+.info .author { color: #555; font-size: 0.9em; margin-top: 0.2rem;}
+.images { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.images a { /* 링크 요소 스타일 */
+    display: block; width: 90%; max-width: 300px;
+    min-height: 150px; background-color: #eee; border-radius: 8px;
+    overflow: hidden;
+}
+.images img {
+    display: block; width: 100%; height: auto;
+    /* max-width/max-height 제거 */
+    /* border-radius 제거 (a에서 처리) */
+    box-shadow: 0 0 8px rgba(0,0,0,0.1); cursor: pointer;
+    opacity: 0; transition: opacity 0.5s ease-in-out;
+}
+.images img.lazyloaded { opacity: 1; }
+#fullscreen-container { position: relative; }
+
+/* --- 카운터 --- */
+.counter-container { position: fixed; top: 10px; right: 10px; z-index: 10002; }
+.fancybox__counter {
+  font-size: 16px; background: rgba(0, 0, 0, 0.6); color: #fff;
+  padding: 4px 10px; border-radius: 12px; user-select: none;
+  cursor: pointer; display: inline-block;
+}
+.fullscreen-container.jump-ui-active .counter-container { opacity: 0.2; pointer-events: none; }
+
+/* --- 전체 화면 뷰어 --- */
+.fullscreen-viewer {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background-color: rgba(0, 0, 0, 0.9); display: flex;
+  justify-content: center; align-items: center; z-index: 9999;
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+  overflow: hidden;
+}
+.fullscreen-viewer.active { opacity: 1; visibility: visible; }
+.fullscreen-viewer img {
+  max-width: 95%; max-height: 95%; object-fit: contain;
+  cursor: grab; user-select: none; -webkit-user-drag: none;
+  transition: transform 0.2s ease-out;
+  touch-action: none;
+}
+.fullscreen-viewer img.dragging { cursor: grabbing; }
+
+/* --- 페이지 점프 UI (세로 스크롤 목록) - 중요! 이 부분 CSS 확인 --- */
+.page-jump-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background-color: rgba(0, 0, 0, 0.7); display: flex;
+  justify-content: center; align-items: center;
+  z-index: 10001; cursor: pointer;
+}
+#page-jump-list {
+  background-color: #333; /* 어두운 배경 */
+  color: #eee; /* 밝은 글씨 */
+  padding: 10px 0; /* 위아래 패딩, 좌우는 항목에서 */
+  border-radius: 10px;
+  max-height: 70vh; /* 높이 제한 */
+  overflow-y: auto; /* 세로 스크롤 */
+  display: flex;
+  flex-direction: column; /* 세로 방향 */
+  gap: 0px; /* 항목 사이 간격 제거 */
+  cursor: default;
+  width: 200px; /* 목록 너비 고정 */
+  scrollbar-width: thin;
+  scrollbar-color: #666 #333;
+}
+#page-jump-list::-webkit-scrollbar { width: 6px; }
+#page-jump-list::-webkit-scrollbar-track { background: #333; }
+#page-jump-list::-webkit-scrollbar-thumb { background-color: #666; border-radius: 3px; }
+
+.page-jump-number {
+  display: flex; /* 숫자와 원 정렬 */
+  align-items: center;
+  justify-content: space-between; /* 숫자 왼쪽, 원 오른쪽 */
+  padding: 12px 15px; /* 항목 내부 패딩 */
+  cursor: pointer;
+  font-weight: normal; /* 기본 글꼴 두께 */
+  text-align: left; /* 숫자 왼쪽 정렬 */
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid #444; /* 항목 구분선 */
+  font-size: 16px;
+}
+.page-jump-number:last-child { border-bottom: none; }
+.page-jump-number:hover { background-color: #444; }
+
+/* 라디오 버튼 스타일 원 */
+.page-jump-number::after {
+  content: ''; display: inline-block; width: 18px; height: 18px;
+  border-radius: 50%; border: 2px solid #888; /* 원 테두리 */
+  margin-left: 15px; position: relative; box-sizing: border-box;
+}
+/* 현재 페이지 표시 (채워진 원) */
+.page-jump-number.current { font-weight: bold; }
+.page-jump-number.current::after { border-color: #eee; background-color: #eee; }
+Use code with caution.
   </style>
 </head>
 <body>
-  <div class="info"> <h2 id="work-title"></h2> <p class="author" id="work-author"></p> </div>
+  <div class="info">
+    <h2 id="work-title"></h2>
+    <p class="author" id="work-author"></p>
+  </div>
   <div class="images"></div>
-  <div id="load-more-trigger" style="height: 50px;"></div>
+  <div id="load-more-trigger" style="height: 50px;"></div> <!-- 썸네일 더보기용 -->
   <div id="fullscreen-container"></div>
-
   <script src="config.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+  <script>
+    // *** config.js의 workConfig 객체 사용 ***
+    // config.js 파일이 workConfig 객체를 정의한다고 가정
+    if (typeof workConfig === 'undefined' || !workConfig || !Array.isArray(workConfig.images)) {
+        console.error("workConfig is not defined or invalid in config.js!");
+        // 사용자에게 오류 메시지 표시 (예: body에 직접 추가)
+        document.body.innerHTML = '<p style="color: red; text-align: center; margin-top: 2rem;">작품 설정(config.js)을 불러올 수 없습니다.</p>';
+        // 스크립트 실행 중단 (throw new Error 사용 시)
+        // throw new Error("workConfig is not defined or invalid in config.js!");
+    }
 
-  <script> // 메인 뷰어 스크립트 시작
-    if (typeof workConfig === 'undefined' || !workConfig || !Array.isArray(workConfig.images)) { /* 오류 처리 생략 */ throw new Error("workConfig is not defined..."); }
+    const imageFiles = workConfig.images; // 이미지 목록 가져오기
+    const fullscreenContainer = document.getElementById('fullscreen-container');
+    const bodyElement = document.body;
+    const imagesContainer = document.querySelector('.images');
+    const workTitleElement = document.getElementById('work-title');
+    const workAuthorElement = document.getElementById('work-author');
+    const loadMoreTrigger = document.getElementById('load-more-trigger');
 
-    const imageFiles = workConfig.images; const fullscreenContainer = document.getElementById('fullscreen-container'); const bodyElement = document.body; const imagesContainer = document.querySelector('.images'); const workTitleElement = document.getElementById('work-title'); const workAuthorElement = document.getElementById('work-author'); const loadMoreTrigger = document.getElementById('load-more-trigger');
-    const itemsPerLoad = 10; let lastLoadedIndex = -1; let thumbnailObserver = null; let imageLazyLoadObserver = null;
-    let currentIndex = 0; let isFullscreen = false; let fullscreenViewer = null; let viewerImage = null; let counterContainer = null; let counterElement = null; let pageJumpOverlay = null; const preloadCache = new Set();
-    // --- Hammer.js 상태 변수 ---
-    let currentScale = 1; let lastScale = 1; let translateX = 0, translateY = 0; let lastTranslateX = 0, lastTranslateY = 0; const minScale = 1, maxScale = 5;
-    let hammerInstance = null;
+    // === 페이지 정보 설정 ===
+    document.title = workConfig.title || "작품 뷰어"; // 제목 없으면 기본값
+    if (workTitleElement) workTitleElement.textContent = workConfig.title || "제목 없음";
+    if (workAuthorElement) workAuthorElement.textContent = `작가: ${workConfig.author || "작자 미상"}`;
 
-    // --- 썸네일 관련 함수 (동일) ---
-    function generateThumbnails(startIndex, count) { /* 내용 동일, 생략 */ const fragment = document.createDocumentFragment(); const endIndex = Math.min(startIndex + count, imageFiles.length); for (let index = startIndex; index < endIndex; index++) { if (index > lastLoadedIndex) { const filename = imageFiles[index]; if (!filename) continue; const link = document.createElement('a'); link.href = filename; link.dataset.index = index; const img = document.createElement('img'); img.dataset.src = filename; img.alt = `${workConfig.title || 'Image'} - Image ${index + 1}`; img.loading = 'lazy'; link.appendChild(img); fragment.appendChild(link); lastLoadedIndex = index; } } imagesContainer.appendChild(fragment); addViewerEventListeners(startIndex, endIndex); setupImageLazyLoadForRange(startIndex, endIndex); if (endIndex >= imageFiles.length && thumbnailObserver && loadMoreTrigger) { thumbnailObserver.unobserve(loadMoreTrigger); loadMoreTrigger.style.display = 'none'; } }
-    function setupThumbnailObserver() { /* 내용 동일, 생략 */ const options = { root: null, rootMargin: '0px 0px 300px 0px', threshold: 0.01 }; thumbnailObserver = new IntersectionObserver((entries, observer) => { entries.forEach(entry => { if (entry.isIntersecting) generateThumbnails(lastLoadedIndex + 1, itemsPerLoad); }); }, options); if (loadMoreTrigger) thumbnailObserver.observe(loadMoreTrigger); else console.warn("Load more trigger element not found."); }
-    function addViewerEventListeners(startIndex, endIndex) { /* 내용 동일, 생략 */ const links = imagesContainer.querySelectorAll(`a[data-index]:not([data-listener-added="true"])`); links.forEach(link => { const index = parseInt(link.dataset.index, 10); if (index >= startIndex && index < endIndex) { link.addEventListener('click', handleThumbnailClick); link.dataset.listenerAdded = 'true'; } }); }
-    function handleThumbnailClick(event) { /* 내용 동일, 생략 */ event.preventDefault(); const index = parseInt(event.currentTarget.dataset.index, 10); if (!isNaN(index)) openFullscreen(index); else console.error("Invalid index on thumbnail click:", event.currentTarget); }
-    function setupImageLazyLoadForRange(startIndex, endIndex) { /* 내용 동일, 생략 */ if (!imageLazyLoadObserver) { imageLazyLoadObserver = new IntersectionObserver((entries, observer) => { entries.forEach(entry => { if (entry.isIntersecting) { const lazyImage = entry.target; if (lazyImage.dataset.src) { lazyImage.src = lazyImage.dataset.src; lazyImage.classList.add('lazyloaded'); lazyImage.removeAttribute('data-src'); observer.unobserve(lazyImage); } } }); }, { rootMargin: '0px 0px 150px 0px' }); } const imagesToObserve = imagesContainer.querySelectorAll(`img[data-src]`); imagesToObserve.forEach(img => { const parentLink = img.closest('a'); if (parentLink && parentLink.dataset.index) { const index = parseInt(parentLink.dataset.index, 10); if (index >= startIndex && index < endIndex) imageLazyLoadObserver.observe(img); } }); }
+    // --- 썸네일 지연 생성 관련 ---
+    const itemsPerLoad = 10;
+    let lastLoadedIndex = -1;
+    let thumbnailObserver = null;
+    let imageLazyLoadObserver = null; // 개별 이미지 로딩 옵저버
 
-    // --- 뷰어 공통 함수 ---
-    function preloadImage(index) { /* 내용 동일, 생략 */ if (index < 0 || index >= imageFiles.length) return; const imageUrl = imageFiles[index]; if (!imageUrl || preloadCache.has(imageUrl)) return; const img = new Image(); img.src = imageUrl; preloadCache.add(imageUrl); }
-    function updateCounter() { /* 내용 동일, 생략 */ if (counterElement) counterElement.innerText = `${currentIndex + 1} / ${imageFiles.length}`; }
-    function showImage(index) { /* 내용 동일, 스케일/이동 초기화 */ if (!isFullscreen) return; if (index >= 0 && index < imageFiles.length) { currentIndex = index; const imageUrl = imageFiles[currentIndex]; if (!imageUrl) { console.error(`Image URL is invalid for index: ${index}`); return; } if (viewerImage) { currentScale = 1; lastScale = 1; translateX = 0; translateY = 0; lastTranslateX = 0; lastTranslateY = 0; applyTransform(); viewerImage.src = imageUrl; updateCounter(); preloadImage(currentIndex + 1); preloadImage(currentIndex - 1); } } else { console.warn(`Invalid index requested: ${index}`); } }
-    function applyTransform() { // translate 와 scale 모두 적용
-        if (viewerImage) {
-            const { constrainedX, constrainedY } = constrainPanning(translateX, translateY, currentScale);
-            viewerImage.style.transform = `translate(${constrainedX}px, ${constrainedY}px) scale(${currentScale})`;
-        }
-    }
-    function constrainPanning(newX, newY, scale) { /* 내용 동일, 생략 */ if (!viewerImage || scale <= 1) return { constrainedX: 0, constrainedY: 0 }; const naturalWidth = viewerImage.offsetWidth; const naturalHeight = viewerImage.offsetHeight; if (naturalWidth === 0 || naturalHeight === 0) return { constrainedX: 0, constrainedY: 0 }; const scaledWidth = naturalWidth * scale; const scaledHeight = naturalHeight * scale; const maxX = Math.max(0, (scaledWidth - window.innerWidth) / 2); const minX = -maxX; const maxY = Math.max(0, (scaledHeight - window.innerHeight) / 2); const minY = -maxY; const constrainedX = Math.max(minX, Math.min(maxX, newX)); const constrainedY = Math.max(minY, Math.min(maxY, newY)); return { constrainedX, constrainedY }; }
-    function togglePageJumpUI() { /* 내용 동일, 생략 */ if (!isFullscreen) return; if (pageJumpOverlay) { removePageJumpUI(); return; } pageJumpOverlay = document.createElement('div'); pageJumpOverlay.className = 'page-jump-overlay'; pageJumpOverlay.addEventListener('click', handleOverlayClick); createPageJumpList(pageJumpOverlay); fullscreenContainer.appendChild(pageJumpOverlay); fullscreenContainer.classList.add('jump-ui-active'); const currentButton = pageJumpOverlay.querySelector(`.page-jump-number.current`); if (currentButton) currentButton.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-    function handleOverlayClick(event) { /* 내용 동일, 생략 */ if (event.target === pageJumpOverlay) removePageJumpUI(); }
-    function createPageJumpList(overlay) { /* 내용 동일, 생략 */ const listContainer = document.createElement('div'); listContainer.id = 'page-jump-list'; listContainer.addEventListener('click', (e) => e.stopPropagation()); for (let i = 1; i <= imageFiles.length; i++) { const pageNumElement = document.createElement('div'); pageNumElement.className = 'page-jump-number'; pageNumElement.innerHTML = `<span>${i}</span>`; pageNumElement.dataset.page = i; if (i === currentIndex + 1) pageNumElement.classList.add('current'); pageNumElement.addEventListener('click', handleJumpNumberClick); listContainer.appendChild(pageNumElement); } overlay.appendChild(listContainer); }
-    function handleJumpNumberClick(event) { /* 내용 동일, 생략 */ const targetPage = parseInt(event.currentTarget.dataset.page, 10); if (!isNaN(targetPage)) { showImage(targetPage - 1); removePageJumpUI(); } }
-    function removePageJumpUI() { /* 내용 동일, 생략 */ if (pageJumpOverlay) { pageJumpOverlay.remove(); pageJumpOverlay = null; } fullscreenContainer.classList.remove('jump-ui-active'); }
-
-    // --- ★★★ Hammer.js 이벤트 핸들러 ★★★ ---
-    function handlePinchStart(ev) {
-        console.log("Hammer: Pinch Start");
-        lastScale = currentScale;
-        // 줌 중심 패닝을 위해 초기 이동값 저장 (더 자연스러운 줌 효과)
-        lastTranslateX = translateX;
-        lastTranslateY = translateY;
-        // (줌 중심점 계산은 복잡하므로 여기서는 생략, 필요시 추가)
-    }
-    function handlePinchMove(ev) {
-        // console.log("Hammer: Pinch Move, Scale:", ev.scale);
-        let newScale = lastScale * ev.scale;
-        newScale = Math.max(minScale, Math.min(maxScale, newScale));
-        currentScale = newScale;
-        // (줌 중심점 계산 및 translateX/Y 업데이트 로직 추가 필요)
-        applyTransform(); // 현재는 중앙 줌만 적용됨
-    }
-    function handlePinchEnd(ev) {
-        console.log("Hammer: Pinch End, Final Scale:", currentScale);
-        lastScale = currentScale;
-        if (currentScale <= 1) { // 1 이하로 축소 시 리셋
-            currentScale = 1; lastScale = 1;
-            translateX = 0; translateY = 0;
-            lastTranslateX = 0; lastTranslateY = 0;
-            applyTransform();
-        }
-    }
-    function handlePanStart(ev) {
-         if (currentScale <= 1) return; // 확대 안됐으면 패닝 무시
-         console.log("Hammer: Pan Start");
-         lastTranslateX = translateX;
-         lastTranslateY = translateY;
-    }
-    function handlePanMove(ev) {
-        if (currentScale <= 1) return; // 확대 안됐으면 패닝 무시
-        // console.log("Hammer: Pan Move, DeltaX:", ev.deltaX, "DeltaY:", ev.deltaY);
-        translateX = lastTranslateX + ev.deltaX;
-        translateY = lastTranslateY + ev.deltaY;
-        applyTransform(); // 이동 적용 (constrainPanning 내부에서 처리)
-    }
-    function handlePanEnd(ev) {
-        if (currentScale <= 1) return; // 확대 안됐으면 패닝 무시
-        console.log("Hammer: Pan End");
-        // 마지막 위치는 applyTransform 내에서 이미 lastTranslateX/Y에 저장됨
-    }
-    function handleTap(ev) {
-        // 확대 상태가 아닐 때만 다음 이미지로
-        if (currentScale <= 1 && !pageJumpOverlay) {
-             console.log("Hammer: Tap Detected (Next Image)");
-             nextImage();
-        } else {
-             console.log("Hammer: Tap Ignored (Zoomed or Jump UI active)");
-        }
-    }
-    function handleSwipe(ev) {
-        // 확대 상태가 아닐 때만 이전/다음 이미지로
-        if (currentScale <= 1 && !pageJumpOverlay) {
-            if (ev.direction === Hammer.DIRECTION_LEFT) {
-                console.log("Hammer: Swipe Left (Next Image)");
-                nextImage();
-            } else if (ev.direction === Hammer.DIRECTION_RIGHT) {
-                console.log("Hammer: Swipe Right (Prev Image)");
-                prevImage();
+    function generateThumbnails(startIndex, count) { /* 이전과 동일 */
+        const fragment = document.createDocumentFragment();
+        const endIndex = Math.min(startIndex + count, imageFiles.length);
+        for (let index = startIndex; index < endIndex; index++) {
+            if (index > lastLoadedIndex) {
+                const filename = imageFiles[index];
+                const link = document.createElement('a');
+                link.href = filename;
+                link.dataset.index = index;
+                const img = document.createElement('img');
+                img.dataset.src = filename;
+                img.alt = `${workConfig.title || 'Image'} - Image ${index + 1}`;
+                img.loading = 'lazy';
+                link.appendChild(img);
+                fragment.appendChild(link);
+                lastLoadedIndex = index;
             }
-        } else {
-            console.log("Hammer: Swipe Ignored (Zoomed or Jump UI active)");
+        }
+        imagesContainer.appendChild(fragment);
+        addViewerEventListeners(startIndex, endIndex);
+        if (endIndex >= imageFiles.length && thumbnailObserver && loadMoreTrigger) {
+            thumbnailObserver.unobserve(loadMoreTrigger);
+            loadMoreTrigger.style.display = 'none';
         }
     }
-
-    // --- 뷰어 열기/닫기, 이미지 넘김, 키보드 이벤트 함수 ---
-    function openFullscreen(index) {
-        if (isFullscreen) return; currentIndex = index; isFullscreen = true; const imageUrl = imageFiles[currentIndex]; if (!imageUrl) { console.error("Invalid image index:", index); isFullscreen = false; return; } bodyElement.classList.add('fullscreen-active'); fullscreenViewer = document.createElement('div'); fullscreenViewer.classList.add('fullscreen-viewer'); fullscreenViewer.innerHTML = `<img src="${imageUrl}" alt="${workConfig.title || 'Image'} - Image ${currentIndex + 1}">`; viewerImage = fullscreenViewer.querySelector('img');
-        viewerImage.onload = () => { preloadImage(currentIndex + 1); preloadImage(currentIndex - 1); }; viewerImage.onerror = () => { console.error("Failed load:", imageUrl); viewerImage.alt="이미지 로드 실패"; };
-        // 배경 클릭 시 닫기는 Hammer tap 핸들러에서 간접적으로 처리 (확대 안됐을 때)
-        // fullscreenViewer.addEventListener('click', handleViewerClick); // 제거
-
-        counterContainer = document.createElement('div'); counterContainer.className = 'counter-container'; counterElement = document.createElement("div"); counterElement.className = "fancybox__counter"; counterElement.addEventListener('click', togglePageJumpUI); counterContainer.appendChild(counterElement);
-        fullscreenContainer.appendChild(fullscreenViewer); fullscreenContainer.appendChild(counterContainer); updateCounter(); document.addEventListener('keydown', handleKeydown);
-
-        // ▼▼▼ Hammer.js 초기화 (모든 제스처 활성화) ▼▼▼
-        hammerInstance = new Hammer(fullscreenViewer, { // 뷰어 전체 영역에 적용
-             recognizers: [
-                 [Hammer.Pinch, { enable: true }],
-                 // Pan은 Pinch와 동시에 인식되도록 설정 (recognizeWith)
-                 [Hammer.Pan, { enable: true, direction: Hammer.DIRECTION_ALL }],
-                 [Hammer.Swipe, { enable: true, direction: Hammer.DIRECTION_HORIZONTAL }], // 수평 스와이프만
-                 [Hammer.Tap, { enable: true, taps: 1, event: 'tap' }] // 싱글 탭
-             ]
-        });
-        // Pinch와 Pan 동시 인식 허용 (줌하면서 패닝 가능하도록)
-        hammerInstance.get('pinch').recognizeWith(hammerInstance.get('pan'));
-
-        hammerInstance.on('pinchstart', handlePinchStart);
-        hammerInstance.on('pinchmove', handlePinchMove);
-        hammerInstance.on('pinchend pinchcancel', handlePinchEnd); // 종료 및 취소
-        hammerInstance.on('panstart', handlePanStart);
-        hammerInstance.on('panmove', handlePanMove);
-        hammerInstance.on('panend pancancel', handlePanEnd); // 종료 및 취소
-        hammerInstance.on('tap', handleTap);
-        hammerInstance.on('swipeleft', handleSwipe);
-        hammerInstance.on('swiperight', handleSwipe);
-        console.log("Hammer.js initialized for ALL gestures");
-        // ▲▲▲ Hammer.js 초기화 ▲▲▲
-
-        requestAnimationFrame(() => { if (fullscreenViewer) fullscreenViewer.classList.add('active'); });
+    function setupThumbnailObserver() { /* 이전과 동일 */
+        const options = { root: null, rootMargin: '0px 0px 200px 0px', threshold: 0.01 };
+        thumbnailObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    generateThumbnails(lastLoadedIndex + 1, itemsPerLoad);
+                }
+            });
+        }, options);
+        if (loadMoreTrigger) { thumbnailObserver.observe(loadMoreTrigger); }
     }
-    // handleViewerClick 함수 제거
-
-    function closeFullscreen() {
-        if (!isFullscreen) return; isFullscreen = false; removePageJumpUI(); bodyElement.classList.remove('fullscreen-active');
-        // ▼▼▼ Hammer.js 인스턴스 제거 ▼▼▼
-        if (hammerInstance) { hammerInstance.destroy(); hammerInstance = null; console.log("Hammer.js instance destroyed"); }
-        // ▲▲▲ Hammer.js 인스턴스 제거 ▲▲▲
-        // 직접 추가한 리스너는 없으므로 제거 불필요
-        if (counterElement) counterElement.removeEventListener('click', togglePageJumpUI); document.removeEventListener('keydown', handleKeydown);
-        if (thumbnailObserver) thumbnailObserver.disconnect(); if (imageLazyLoadObserver) imageLazyLoadObserver.disconnect(); thumbnailObserver = null; imageLazyLoadObserver = null;
-        if (fullscreenViewer) fullscreenViewer.classList.remove('active');
-        setTimeout(() => { fullscreenContainer.innerHTML = ''; fullscreenViewer = null; viewerImage = null; counterContainer = null; counterElement = null; pageJumpOverlay = null;
-             currentScale = 1; lastScale = 1; translateX = 0; translateY = 0; lastTranslateX = 0; lastTranslateY = 0; preloadCache.clear(); }, 300);
+    function addViewerEventListeners(startIndex, endIndex) { /* 이전과 동일 */
+        const links = imagesContainer.querySelectorAll(`a[data-index]`);
+        for (let i = 0; i < links.length; i++) {
+            const link = links[i];
+            const index = parseInt(link.dataset.index, 10);
+            if (index >= startIndex && index < endIndex && !link.dataset.listenerAdded) {
+                 link.addEventListener('click', handleThumbnailClick);
+                 link.dataset.listenerAdded = 'true';
+                 setupImageLazyLoad(link.querySelector('img')); // 개별 이미지 지연 로딩 설정
+            }
+        }
     }
-    function nextImage() { /* 내용 동일, 생략 */ if (isFullscreen && !pageJumpOverlay && currentScale <= 1) showImage((currentIndex + 1) % imageFiles.length); }
-    function prevImage() { /* 내용 동일, 생략 */ if (isFullscreen && !pageJumpOverlay && currentScale <= 1) showImage((currentIndex - 1 + imageFiles.length) % imageFiles.length); }
-    function handleKeydown(event) { /* 내용 동일, 생략 */ if (pageJumpOverlay) { if (event.key === 'Escape') removePageJumpUI(); return; } if (isFullscreen) { if (event.key === 'Escape') closeFullscreen(); } }
+    function handleThumbnailClick(event) { /* 이전과 동일 */
+        event.preventDefault();
+        const index = parseInt(event.currentTarget.dataset.index, 10);
+        if (!isNaN(index)) { openFullscreen(index); }
+    }
+    function setupImageLazyLoad(imgElement) { /* 이전과 동일 */
+        if (!imgElement) return; // img 요소 없으면 종료
+        if (!imageLazyLoadObserver) {
+            imageLazyLoadObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const lazyImage = entry.target;
+                        if (lazyImage.dataset.src) { // data-src 있는지 확인
+                            lazyImage.src = lazyImage.dataset.src;
+                            lazyImage.classList.add('lazyloaded');
+                            observer.unobserve(lazyImage);
+                        }
+                    }
+                });
+            }, { rootMargin: '0px 0px 100px 0px' });
+        }
+        imageLazyLoadObserver.observe(imgElement);
+    }
+
+    // --- 뷰어 로직 시작 ---
+    let currentIndex = 0;
+    let isFullscreen = false;
+    // ... (나머지 뷰어 관련 변수 선언 동일) ...
+    let fullscreenViewer = null;
+    let viewerImage = null;
+    let counterContainer = null;
+    let counterElement = null;
+    let pageJumpOverlay = null;
+    let isDragging = false;
+    let startX = 0, currentX = 0, clickStartX = 0, clickStartY = 0, dragStartTime = 0;
+    let pointerDown = false, clickTimeoutId = null;
+    const swipeThreshold = 50, clickMoveThreshold = 15, clickTimeThreshold = 250;
+    const dragStartThreshold = 5, clickDebounceTime = 60;
+    const preloadCache = new Set(); // 프리로드 캐시
+
+    function preloadImage(index) { /* 이전과 동일 */
+        if (index < 0 || index >= imageFiles.length) return;
+        const imageUrl = imageFiles[index];
+        if (!imageUrl || preloadCache.has(imageUrl)) return;
+        const img = new Image(); img.src = imageUrl;
+        preloadCache.add(imageUrl);
+    }
+    function updateCounter() { /* imageFiles.length 사용 */
+      if (counterElement) {
+        counterElement.innerText = `${currentIndex + 1} / ${imageFiles.length}`;
+      }
+    }
+    function showImage(index) { /* imageFiles.length, imageFiles[currentIndex] 사용 */
+        if (!isFullscreen) return;
+        if (index >= 0 && index < imageFiles.length) {
+            currentIndex = index;
+            const imageUrl = imageFiles[currentIndex]; // 배열 직접 사용
+            if (viewerImage) {
+                viewerImage.style.transition = 'none';
+                viewerImage.style.transform = '';
+                viewerImage.src = imageUrl;
+                updateCounter();
+                setTimeout(() => { if(viewerImage) viewerImage.style.transition = ''; }, 50);
+                preloadImage(currentIndex + 1);
+                preloadImage(currentIndex - 1);
+            }
+        } else { console.warn(`Invalid index: ${index}`); }
+    }
+    function togglePageJumpUI() { /* imageFiles.length 사용 */
+        if (!isFullscreen) return;
+        if (pageJumpOverlay) { removePageJumpUI(); return; }
+        pageJumpOverlay = document.createElement('div');
+        pageJumpOverlay.className = 'page-jump-overlay';
+        pageJumpOverlay.addEventListener('click', handleOverlayClick);
+        createPageJumpList(pageJumpOverlay); // createPageJumpList 호출
+        fullscreenContainer.appendChild(pageJumpOverlay);
+        fullscreenContainer.classList.add('jump-ui-active');
+        const currentButton = pageJumpOverlay.querySelector(`.page-jump-number.current`);
+        if (currentButton) { currentButton.scrollIntoView({ behavior: 'auto', block: 'center' }); }
+    }
+    function handleOverlayClick(event) { /* 이전과 동일 */
+        if (event.target === pageJumpOverlay) removePageJumpUI();
+    }
+    function createPageJumpList(overlay) { /* imageFiles.length 사용 */
+        const listContainer = document.createElement('div');
+        listContainer.id = 'page-jump-list';
+        listContainer.addEventListener('click', (e) => e.stopPropagation());
+        for (let i = 1; i <= imageFiles.length; i++) { /* imageFiles.length 사용 */
+            const pageNumElement = document.createElement('div');
+            pageNumElement.className = 'page-jump-number';
+            pageNumElement.innerHTML = `<span>${i}</span>`;
+            pageNumElement.dataset.page = i;
+            if (i === currentIndex + 1) pageNumElement.classList.add('current');
+            pageNumElement.addEventListener('click', handleJumpNumberClick);
+            listContainer.appendChild(pageNumElement);
+        }
+        overlay.appendChild(listContainer);
+    }
+    function handleJumpNumberClick(event) { /* 이전과 동일 */
+        const targetPage = parseInt(event.currentTarget.dataset.page, 10);
+        showImage(targetPage - 1);
+        removePageJumpUI();
+    }
+    function removePageJumpUI() { /* 이전과 동일 */
+        if (pageJumpOverlay) { pageJumpOverlay.remove(); pageJumpOverlay = null; }
+        fullscreenContainer.classList.remove('jump-ui-active');
+    }
+    function handlePointerDown(event) { /* 이전과 동일 */
+        if (pageJumpOverlay || !viewerImage || pointerDown) return;
+        if (event.button && event.button !== 0) return;
+        clearTimeout(clickTimeoutId); pointerDown = true; isDragging = false; dragStartTime = Date.now();
+        const touch = event.type.startsWith('touch'); startX = touch ? event.touches[0].clientX : event.clientX;
+        currentX = startX; clickStartX = startX; clickStartY = touch ? event.touches[0].clientY : event.clientY;
+        document.addEventListener('mousemove', handlePointerMove);
+        document.addEventListener('touchmove', handlePointerMove, { passive: false });
+        document.addEventListener('mouseup', handlePointerUp);
+        document.addEventListener('touchend', handlePointerUp);
+        document.addEventListener('mouseleave', handlePointerUp);
+    }
+    function handlePointerMove(event) { /* 이전과 동일 */
+        if (!pointerDown) return;
+        const currentMoveX = event.type.startsWith('touch') ? event.touches[0].clientX : event.clientX;
+        const currentMoveY = event.type.startsWith('touch') ? event.touches[0].clientY : event.clientY;
+        if (!isDragging) {
+            const moveX = Math.abs(currentMoveX - clickStartX); const moveY = Math.abs(currentMoveY - clickStartY);
+            if (moveX > dragStartThreshold || moveY > dragStartThreshold) {
+                isDragging = true; if (viewerImage) { viewerImage.classList.add('dragging'); viewerImage.style.transition = 'none'; }
+            }
+        }
+        if (isDragging && viewerImage) {
+            currentX = currentMoveX; const diffX = currentX - startX; viewerImage.style.transform = `translateX(${diffX}px)`;
+        }
+    }
+    function handlePointerUp(event) { /* 이전과 동일 */
+        if (!pointerDown) return;
+        pointerDown = false; const wasDragging = isDragging; isDragging = false;
+        document.removeEventListener('mousemove', handlePointerMove); document.removeEventListener('touchmove', handlePointerMove);
+        document.removeEventListener('mouseup', handlePointerUp); document.removeEventListener('touchend', handlePointerUp); document.removeEventListener('mouseleave', handlePointerUp);
+        if (!viewerImage) { return; }
+        viewerImage.classList.remove('dragging'); viewerImage.style.transition = '';
+        const diffX = currentX - startX; const dragDuration = Date.now() - dragStartTime;
+        const touch = event.type === 'touchend';
+        const endX = touch ? (event.changedTouches[0] ? event.changedTouches[0].clientX : currentX) : event.clientX;
+        const endY = touch ? (event.changedTouches[0] ? event.changedTouches[0].clientY : clickStartY) : event.clientY;
+        const totalMoveX = Math.abs(endX - clickStartX); const totalMoveY = Math.abs(endY - clickStartY);
+        viewerImage.style.transform = '';
+        if (totalMoveX < clickMoveThreshold && totalMoveY < clickMoveThreshold && dragDuration < clickTimeThreshold) {
+            clearTimeout(clickTimeoutId); clickTimeoutId = setTimeout(() => { nextImage(); }, clickDebounceTime); return;
+        }
+        if (wasDragging && Math.abs(diffX) >= swipeThreshold) {
+            clearTimeout(clickTimeoutId); if (diffX > 0) { prevImage(); } else { nextImage(); } return;
+        }
+    }
+    function openFullscreen(index) { /* imageFiles 직접 사용 */
+      if (isFullscreen) return;
+      currentIndex = index; isFullscreen = true;
+      const imageUrl = imageFiles[currentIndex]; // 배열 직접 사용
+      if (!imageUrl) { console.error("Invalid image index:", index); return; }
+      bodyElement.classList.add('fullscreen-active');
+      fullscreenViewer = document.createElement('div'); fullscreenViewer.classList.add('fullscreen-viewer');
+      fullscreenViewer.innerHTML = `<img src="${imageUrl}" alt="${workConfig.title || 'Image'} - Image ${currentIndex + 1}">`;
+      viewerImage = fullscreenViewer.querySelector('img');
+      viewerImage.onload = () => { preloadImage(currentIndex + 1); preloadImage(currentIndex - 1); };
+      viewerImage.onerror = () => { console.error("Failed load:", imageUrl); };
+      fullscreenViewer.addEventListener('click', handleViewerClick);
+      viewerImage.addEventListener('mousedown', handlePointerDown);
+      viewerImage.addEventListener('touchstart', handlePointerDown, { passive: false });
+      counterContainer = document.createElement('div'); counterContainer.className = 'counter-container';
+      counterElement = document.createElement("div"); counterElement.className = "fancybox__counter";
+      counterElement.addEventListener('click', togglePageJumpUI); counterContainer.appendChild(counterElement);
+      fullscreenContainer.appendChild(fullscreenViewer); fullscreenContainer.appendChild(counterContainer);
+      updateCounter(); // imageFiles.length 사용
+      document.addEventListener('keydown', handleKeydown);
+      requestAnimationFrame(() => fullscreenViewer.classList.add('active'));
+    }
+    function handleViewerClick(event) { /* 이전과 동일 */
+        if (!pageJumpOverlay && !isDragging && event.target === fullscreenViewer) { closeFullscreen(); }
+    }
+    function closeFullscreen() { /* 옵저버 해제 추가 */
+      if (!isFullscreen) return; isFullscreen = false; removePageJumpUI(); bodyElement.classList.remove('fullscreen-active');
+      clearTimeout(clickTimeoutId);
+      if (thumbnailObserver) thumbnailObserver.disconnect(); // 옵저버 해제
+      if (imageLazyLoadObserver) imageLazyLoadObserver.disconnect(); // 옵저버 해제
+      thumbnailObserver = null; imageLazyLoadObserver = null;
+      if (viewerImage) { viewerImage.removeEventListener('mousedown', handlePointerDown); viewerImage.removeEventListener('touchstart', handlePointerDown); }
+      if (fullscreenViewer) fullscreenViewer.removeEventListener('click', handleViewerClick);
+      if (counterElement) counterElement.removeEventListener('click', togglePageJumpUI);
+      document.removeEventListener('keydown', handleKeydown);
+      if (fullscreenViewer) fullscreenViewer.classList.remove('active');
+      setTimeout(() => {
+          fullscreenContainer.innerHTML = ''; fullscreenViewer = null; viewerImage = null; counterContainer = null;
+          counterElement = null; pageJumpOverlay = null; isDragging = false; pointerDown = false;
+          lastLoadedIndex = -1; preloadCache.clear(); // 상태 초기화
+      }, 300);
+    }
+    function nextImage() { /* imageFiles.length 사용 */
+      if (isFullscreen && !pageJumpOverlay) { showImage((currentIndex + 1) % imageFiles.length); }
+    }
+    function prevImage() { /* imageFiles.length 사용 */
+        if (isFullscreen && !pageJumpOverlay) { showImage((currentIndex - 1 + imageFiles.length) % imageFiles.length); }
+    }
+    function handleKeydown(event) { /* 이전과 동일 */
+        if (pageJumpOverlay) { if (event.key === 'Escape') removePageJumpUI(); return; }
+        if (isFullscreen) {
+            if (event.key === 'Escape') closeFullscreen();
+            else if (event.key === 'ArrowRight' || event.key === ' ') nextImage();
+            else if (event.key === 'ArrowLeft') prevImage();
+        }
+    }
 
     // --- 초기화 ---
-    document.addEventListener('DOMContentLoaded', () => { /* 내용 동일, 생략 */ if (typeof workConfig !== 'undefined') { document.title = workConfig.title || "작품 뷰어"; if (workTitleElement) workTitleElement.textContent = workConfig.title || "제목 없음"; if (workAuthorElement) workAuthorElement.textContent = `작가: ${workConfig.author || "작자 미상"}`; generateThumbnails(0, itemsPerLoad); setupThumbnailObserver(); } else { console.error("Initialization failed because workConfig is not defined."); } });
+    // config.js 로드 확인 후 실행
+    if (typeof workConfig !== 'undefined') {
+        generateThumbnails(0, itemsPerLoad); // 초기 썸네일 로드
+        setupThumbnailObserver(); // 스크롤 감지 시작
+    } // else 부분에서 오류 처리는 스크립트 상단에서 이미 함
+
   </script>
 </body>
 </html>

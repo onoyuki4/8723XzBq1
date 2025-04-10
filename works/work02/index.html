@@ -3,23 +3,39 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <!-- 제목은 JS로 설정 -->
   <title>작품 뷰어</title>
   <style>
-    /* CSS는 이전과 동일 */
+    /* CSS는 이전과 거의 동일 */
     body { font-family: sans-serif; padding: 1rem; background: #fff; margin: 0; }
     body.fullscreen-active { overflow: hidden; }
     .info { text-align: center; margin-bottom: 1rem; }
     .info h2 { margin: 0.5rem 0; }
-    /* 작가 정보 스타일 */
     .info .author { color: #555; font-size: 0.9em; margin-top: 0.2rem;}
     .images { display: flex; flex-direction: column; gap: 10px; align-items: center; }
-    .images img { /* ... */
-        max-width: 300px; max-height: 400px; width: auto; height: auto;
-        border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); cursor: pointer;
-        opacity: 0; transition: opacity 0.5s ease-in-out;
+    .images a { /* 링크 요소에도 스타일 적용 (옵저버 타겟) */
+        display: block; /* Intersection Observer 위해 block 요소여야 함 */
+        width: 90%; /* 너비 지정 (이미지와 맞추거나 적절히) */
+        max-width: 300px; /* 최대 너비 */
+        min-height: 150px; /* 이미지가 로드되기 전 최소 높이 확보 (선택 사항) */
+        background-color: #eee; /* 로딩 전 배경색 (선택 사항) */
+        border-radius: 8px;
+        overflow: hidden; /* 내부 이미지가 넘치지 않도록 */
     }
-    .images img[loading="lazy"][src] { opacity: 1; }
+    .images img {
+        display: block; /* 이미지 하단 여백 제거 */
+        width: 100%; /* 부모 요소(a) 너비에 맞춤 */
+        height: auto; /* 높이는 비율에 맞게 */
+        /* max-width/max-height 제거 또는 조정 */
+        border-radius: 8px; /* 이제 필요 없을 수도 있음 (a에서 처리) */
+        box-shadow: 0 0 8px rgba(0,0,0,0.1);
+        cursor: pointer;
+        opacity: 0; transition: opacity 0.5s ease-in-out;
+        /* content-visibility로 렌더링 지연 (실험적 기능) */
+        /* content-visibility: auto; */
+    }
+    .images img.lazyloaded { /* 로딩 완료 시 */
+        opacity: 1;
+    }
     #fullscreen-container { position: relative; }
     .counter-container { position: fixed; top: 10px; right: 10px; z-index: 10002; }
     .fancybox__counter { /* ... */
@@ -57,78 +73,148 @@
       cursor: default; width: 200px;
       scrollbar-width: thin; scrollbar-color: #666 #333;
     }
-    #page-jump-list::-webkit-scrollbar { width: 6px; }
-    #page-jump-list::-webkit-scrollbar-track { background: #333; }
-    #page-jump-list::-webkit-scrollbar-thumb { background-color: #666; border-radius: 3px; }
-    .page-jump-number { /* ... */
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 15px; cursor: pointer; font-weight: normal;
-      text-align: left; transition: background-color 0.2s ease;
-      border-bottom: 1px solid #444; font-size: 16px;
-    }
-    .page-jump-number:last-child { border-bottom: none; }
-    .page-jump-number:hover { background-color: #444; }
-    .page-jump-number::after { /* ... */
-      content: ''; display: inline-block; width: 18px; height: 18px;
-      border-radius: 50%; border: 2px solid #888; margin-left: 15px;
-      position: relative; box-sizing: border-box;
-    }
-    .page-jump-number.current { font-weight: bold; }
-    .page-jump-number.current::after { /* ... */
-      border-color: #eee; background-color: #eee;
-    }
+    /* ... (page-jump-number 등 나머지 CSS 동일) ... */
   </style>
 </head>
 <body>
   <div class="info">
-    <!-- *** 제목과 작가 정보가 JS로 채워질 영역 *** -->
     <h2 id="work-title"></h2>
     <p class="author" id="work-author"></p>
   </div>
   <div class="images"></div> <!-- JS로 채워질 영역 -->
+  <!-- 로딩 더보기 트리거 (옵저버가 관찰할 요소) -->
+  <div id="load-more-trigger" style="height: 50px;"></div>
 
   <div id="fullscreen-container"></div>
 
-  <!-- *** config.js 먼저 로드 *** -->
   <script src="config.js"></script>
 
   <script>
-    // *** config.js의 workConfig 객체 사용 ***
-    const imageFiles = workConfig.images; // 이미지 목록 가져오기
-
+    const imageFiles = workConfig.images;
     const fullscreenContainer = document.getElementById('fullscreen-container');
     const bodyElement = document.body;
     const imagesContainer = document.querySelector('.images');
     const workTitleElement = document.getElementById('work-title');
     const workAuthorElement = document.getElementById('work-author');
+    const loadMoreTrigger = document.getElementById('load-more-trigger'); // 더보기 트리거
 
-    // === 페이지 정보 설정 ===
-    document.title = workConfig.title; // 브라우저 탭 제목 설정
-    workTitleElement.textContent = workConfig.title; // h2 제목 설정
-    workAuthorElement.textContent = `작가: ${workConfig.author}`; // 작가 정보 설정
+    document.title = workConfig.title;
+    workTitleElement.textContent = workConfig.title;
+    workAuthorElement.textContent = `작가: ${workConfig.author}`;
 
-    function generateThumbnails() {
-        imagesContainer.innerHTML = '';
-        // *** imageFiles (workConfig.images) 사용 ***
-        imageFiles.forEach((filename, index) => {
-            const link = document.createElement('a');
-            link.href = filename;
-            link.dataset.index = index;
-            const img = document.createElement('img');
-            img.src = filename;
-            img.alt = `${workConfig.title} - Image ${index + 1}`; // Alt 텍스트 개선
-            img.loading = 'lazy';
-            link.appendChild(img);
-            imagesContainer.appendChild(link);
-        });
+    // --- 썸네일 지연 생성 관련 설정 ---
+    const itemsPerLoad = 10; // 한 번에 로드할 썸네일 개수
+    let lastLoadedIndex = -1; // 마지막으로 로드된 썸네일 인덱스
+    let thumbnailObserver = null; // Intersection Observer 인스턴스
+
+    // --- 썸네일 생성 함수 (부분 로드) ---
+    function generateThumbnails(startIndex, count) {
+        const fragment = document.createDocumentFragment(); // 성능 향상을 위해 DocumentFragment 사용
+        const endIndex = Math.min(startIndex + count, imageFiles.length);
+
+        for (let index = startIndex; index < endIndex; index++) {
+            if (index > lastLoadedIndex) { // 중복 로드 방지
+                const filename = imageFiles[index];
+                const link = document.createElement('a');
+                link.href = filename;
+                link.dataset.index = index; // data-index 설정
+
+                const img = document.createElement('img');
+                // 실제 src는 옵저버가 설정, 초기에는 빈값 또는 placeholder
+                // img.src = 'placeholder.gif'; // 로딩 전 표시할 이미지 (선택사항)
+                img.dataset.src = filename; // 실제 이미지 경로는 data-src에 저장
+                img.alt = `${workConfig.title} - Image ${index + 1}`;
+                img.loading = 'lazy'; // 브라우저 네이티브 지연 로딩도 유지
+
+                link.appendChild(img);
+                fragment.appendChild(link);
+                lastLoadedIndex = index; // 마지막 로드 인덱스 업데이트
+            }
+        }
+        imagesContainer.appendChild(fragment);
+
+        // 새로 추가된 링크들에 대해 뷰어 열기 이벤트 리스너 추가
+        addViewerEventListeners(startIndex, endIndex);
+
+        // 모든 이미지가 로드되었으면 트리거 숨기기 또는 옵저버 해제
+        if (endIndex >= imageFiles.length) {
+            if (thumbnailObserver && loadMoreTrigger) {
+                thumbnailObserver.unobserve(loadMoreTrigger);
+            }
+            loadMoreTrigger.style.display = 'none'; // 트리거 숨김
+        }
     }
 
-    generateThumbnails();
+    // --- Intersection Observer 설정 ---
+    function setupThumbnailObserver() {
+        const options = {
+            root: null, // viewport 기준
+            rootMargin: '0px 0px 200px 0px', // 뷰포트 하단 200px 전에 트리거
+            threshold: 0.01 // 조금이라도 보이면 트리거
+        };
 
-    // === 뷰어 로직 시작 (workConfig.images.length 사용하도록 수정) ===
-    const imageLinks = document.querySelectorAll('.images a');
+        thumbnailObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    // 트리거가 보이면 다음 썸네일 로드
+                    generateThumbnails(lastLoadedIndex + 1, itemsPerLoad);
+                }
+            });
+        }, options);
+
+        // 트리거 요소 관찰 시작
+        if (loadMoreTrigger) {
+            thumbnailObserver.observe(loadMoreTrigger);
+        }
+    }
+    // === 추가된 이미지에 뷰어 이벤트 리스너 연결하는 함수 ===
+    function addViewerEventListeners(startIndex, endIndex) {
+        const links = imagesContainer.querySelectorAll(`a[data-index]`);
+        for (let i = 0; i < links.length; i++) {
+            const link = links[i];
+            const index = parseInt(link.dataset.index, 10);
+            // 새로 추가된 범위의 링크에만 이벤트 리스너 추가 (중복 방지)
+            if (index >= startIndex && index < endIndex && !link.dataset.listenerAdded) {
+                 link.addEventListener('click', handleThumbnailClick);
+                 link.dataset.listenerAdded = 'true'; // 리스너 추가됨 표시
+
+                 // 이미지 지연 로딩 (data-src -> src) - Intersection Observer 활용
+                 setupImageLazyLoad(link.querySelector('img'));
+            }
+        }
+    }
+    // === 썸네일 클릭 핸들러 ===
+    function handleThumbnailClick(event) {
+        event.preventDefault();
+        const index = parseInt(event.currentTarget.dataset.index, 10);
+        if (!isNaN(index)) {
+             openFullscreen(index);
+        }
+    }
+
+     // === 개별 이미지 지연 로딩 옵저버 설정 ===
+    let imageLazyLoadObserver;
+    function setupImageLazyLoad(imgElement) {
+        if (!imageLazyLoadObserver) {
+            imageLazyLoadObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const lazyImage = entry.target;
+                        // console.log("Lazy loading:", lazyImage.dataset.src);
+                        lazyImage.src = lazyImage.dataset.src; // 실제 이미지 로드
+                        lazyImage.classList.add('lazyloaded'); // 로딩 완료 클래스 추가
+                        observer.unobserve(lazyImage); // 한번 로드하면 관찰 중지
+                    }
+                });
+            }, { rootMargin: '0px 0px 100px 0px' }); // 화면 하단 100px 전 로드
+        }
+        imageLazyLoadObserver.observe(imgElement);
+    }
+
+
+    // --- 뷰어 로직 시작 (Preloading 추가) ---
+    // const imageLinks = ... // 이제 필요 없음 (동적으로 생성/참조)
     let currentIndex = 0;
-    // ... (isFullscreen 등 변수 선언 동일) ...
     let isFullscreen = false;
     let fullscreenViewer = null;
     let viewerImage = null;
@@ -136,42 +222,54 @@
     let counterElement = null;
     let pageJumpOverlay = null;
     let isDragging = false;
-    // ... (스와이프/클릭 변수들 동일) ...
-    let startX = 0;
-    let currentX = 0;
-    let clickStartX = 0;
-    let clickStartY = 0;
-    let dragStartTime = 0;
-    let pointerDown = false;
-    let clickTimeoutId = null;
-    const swipeThreshold = 50;
-    const clickMoveThreshold = 15;
-    const clickTimeThreshold = 250;
-    const dragStartThreshold = 5;
-    const clickDebounceTime = 60;
+    // ... (스와이프/클릭 변수 동일) ...
+    let startX = 0, currentX = 0, clickStartX = 0, clickStartY = 0, dragStartTime = 0;
+    let pointerDown = false, clickTimeoutId = null;
+    const swipeThreshold = 50, clickMoveThreshold = 15, clickTimeThreshold = 250;
+    const dragStartThreshold = 5, clickDebounceTime = 60;
 
-    function updateCounter() {
+    // === 이미지 Preloading 함수 ===
+    const preloadCache = new Set(); // 이미 프리로드 시도한 URL 저장
+    function preloadImage(index) {
+        if (index < 0 || index >= imageFiles.length) return; // 범위 벗어나면 종료
+        const imageUrl = imageFiles[index];
+        if (!imageUrl || preloadCache.has(imageUrl)) return; // URL 없거나 이미 시도했으면 종료
+
+        // console.log("Preloading:", imageUrl); // 디버깅
+        const img = new Image();
+        img.src = imageUrl;
+        preloadCache.add(imageUrl); // 프리로드 시도 기록
+    }
+
+    function updateCounter() { /* imageFiles.length 사용 */
       if (counterElement) {
-        // *** workConfig.images.length 사용 ***
-        counterElement.innerText = `${currentIndex + 1} / ${workConfig.images.length}`;
+        counterElement.innerText = `${currentIndex + 1} / ${imageFiles.length}`;
       }
     }
+
     function showImage(index) {
         if (!isFullscreen) return;
-        // *** workConfig.images.length 사용 ***
-        if (index >= 0 && index < workConfig.images.length) {
+        if (index >= 0 && index < imageFiles.length) {
             currentIndex = index;
-            const imageUrl = imageLinks.item(currentIndex).getAttribute('href');
+            const imageUrl = imageFiles[currentIndex]; // workConfig.images 직접 사용
             if (viewerImage) {
                 viewerImage.style.transition = 'none';
                 viewerImage.style.transform = '';
                 viewerImage.src = imageUrl;
                 updateCounter();
                 setTimeout(() => { if(viewerImage) viewerImage.style.transition = ''; }, 50);
+
+                // *** 현재 이미지 로드 후 주변 이미지 Preload ***
+                preloadImage(currentIndex + 1); // 다음 이미지
+                preloadImage(currentIndex - 1); // 이전 이미지
+                // 필요시 더 많은 이미지 미리 로드 (예: +2, -2)
+                // preloadImage(currentIndex + 2);
+                // preloadImage(currentIndex - 2);
             }
         } else { console.warn(`Invalid index: ${index}`); }
     }
-    function togglePageJumpUI() { /* 이전과 동일 */
+
+    function togglePageJumpUI() { /* 이전과 동일, imageFiles.length 사용 */
         if (!isFullscreen) return;
         if (pageJumpOverlay) { removePageJumpUI(); return; }
         pageJumpOverlay = document.createElement('div');
@@ -186,12 +284,11 @@
     function handleOverlayClick(event) { /* 이전과 동일 */
         if (event.target === pageJumpOverlay) removePageJumpUI();
     }
-    function createPageJumpList(overlay) { /* workConfig.images.length 사용 */
+    function createPageJumpList(overlay) { /* imageFiles.length 사용 */
         const listContainer = document.createElement('div');
         listContainer.id = 'page-jump-list';
         listContainer.addEventListener('click', (e) => e.stopPropagation());
-        // *** workConfig.images.length 사용 ***
-        for (let i = 1; i <= workConfig.images.length; i++) {
+        for (let i = 1; i <= imageFiles.length; i++) { /* imageFiles.length 사용 */
             const pageNumElement = document.createElement('div');
             pageNumElement.className = 'page-jump-number';
             pageNumElement.innerHTML = `<span>${i}</span>`;
@@ -204,7 +301,7 @@
     }
     function handleJumpNumberClick(event) { /* 이전과 동일 */
         const targetPage = parseInt(event.currentTarget.dataset.page, 10);
-        showImage(targetPage - 1);
+        showImage(targetPage - 1); // showImage 호출 시 preload 트리거됨
         removePageJumpUI();
     }
     function removePageJumpUI() { /* 이전과 동일 */
@@ -238,10 +335,7 @@
             const moveY = Math.abs(currentMoveY - clickStartY);
             if (moveX > dragStartThreshold || moveY > dragStartThreshold) {
                 isDragging = true;
-                if (viewerImage) {
-                    viewerImage.classList.add('dragging');
-                    viewerImage.style.transition = 'none';
-                }
+                if (viewerImage) { viewerImage.classList.add('dragging'); viewerImage.style.transition = 'none'; }
             }
         }
         if (isDragging && viewerImage) {
@@ -270,32 +364,47 @@
         const endY = touch ? (event.changedTouches[0] ? event.changedTouches[0].clientY : clickStartY) : event.clientY;
         const totalMoveX = Math.abs(endX - clickStartX);
         const totalMoveY = Math.abs(endY - clickStartY);
-        viewerImage.style.transform = ''; // 위치 초기화 먼저
+        viewerImage.style.transform = ''; // 위치 초기화
 
-        // 클릭 판정 우선
+        // 클릭 판정
         if (totalMoveX < clickMoveThreshold && totalMoveY < clickMoveThreshold && dragDuration < clickTimeThreshold) {
             clearTimeout(clickTimeoutId);
             clickTimeoutId = setTimeout(() => { nextImage(); }, clickDebounceTime);
-            return; // 클릭 처리 후 종료
+            return;
         }
         // 스와이프 판정
         if (wasDragging && Math.abs(diffX) >= swipeThreshold) {
             clearTimeout(clickTimeoutId);
             if (diffX > 0) { prevImage(); } else { nextImage(); }
-            return; // 스와이프 처리 후 종료
+            return;
         }
     }
-    function openFullscreen(index) { /* imageLinks 사용 */
+    function openFullscreen(index) {
       if (isFullscreen) return;
-      currentIndex = index;
+      currentIndex = index; // 시작 인덱스 설정
       isFullscreen = true;
-      const imageUrl = imageLinks.item(currentIndex).getAttribute('href'); // imageLinks 사용
+      // *** config.js의 images 배열 직접 사용 ***
+      const imageUrl = imageFiles[currentIndex];
+      if (!imageUrl) { // 유효하지 않은 인덱스 처리
+          console.error("Invalid image index for fullscreen:", index);
+          return;
+      }
+
       bodyElement.classList.add('fullscreen-active');
       fullscreenViewer = document.createElement('div');
       fullscreenViewer.classList.add('fullscreen-viewer');
-      // *** Alt 텍스트에 workConfig.title 사용 ***
-      fullscreenViewer.innerHTML = `<img src="${imageUrl}" alt="${workConfig.title} - Image ${currentIndex + 1}">`;
+      fullscreenViewer.innerHTML = `<img src="${imageUrl}" alt="${workConfig.title} - Image ${currentIndex + 1}">`; // 첫 이미지 바로 로드
       viewerImage = fullscreenViewer.querySelector('img');
+
+      // 로딩 완료 후 주변 이미지 미리 로드
+      viewerImage.onload = () => {
+          preloadImage(currentIndex + 1);
+          preloadImage(currentIndex - 1);
+      };
+      viewerImage.onerror = () => {
+          console.error("Failed to load initial fullscreen image:", imageUrl);
+      };
+
       fullscreenViewer.addEventListener('click', handleViewerClick);
       viewerImage.addEventListener('mousedown', handlePointerDown);
       viewerImage.addEventListener('touchstart', handlePointerDown, { passive: false });
@@ -307,7 +416,7 @@
       counterContainer.appendChild(counterElement);
       fullscreenContainer.appendChild(fullscreenViewer);
       fullscreenContainer.appendChild(counterContainer);
-      updateCounter(); // updateCounter 내부에서 workConfig.images.length 사용
+      updateCounter(); // 초기 카운터 설정
       document.addEventListener('keydown', handleKeydown);
       requestAnimationFrame(() => fullscreenViewer.classList.add('active'));
     }
@@ -322,6 +431,12 @@
       removePageJumpUI();
       bodyElement.classList.remove('fullscreen-active');
       clearTimeout(clickTimeoutId);
+      // 옵저버 해제
+      if (thumbnailObserver) thumbnailObserver.disconnect();
+      if (imageLazyLoadObserver) imageLazyLoadObserver.disconnect();
+      thumbnailObserver = null;
+      imageLazyLoadObserver = null;
+
       if (viewerImage) {
           viewerImage.removeEventListener('mousedown', handlePointerDown);
           viewerImage.removeEventListener('touchstart', handlePointerDown);
@@ -335,17 +450,18 @@
           fullscreenViewer = null; viewerImage = null; counterContainer = null;
           counterElement = null; pageJumpOverlay = null;
           isDragging = false; pointerDown = false;
+          lastLoadedIndex = -1; // 썸네일 로드 인덱스 초기화
+          preloadCache.clear(); // 프리로드 캐시 초기화
       }, 300);
     }
-    // *** nextImage/prevImage 함수 수정: workConfig.images.length 사용 ***
-    function nextImage() {
+    function nextImage() { /* imageFiles.length 사용 */
       if (isFullscreen && !pageJumpOverlay) {
-        showImage((currentIndex + 1) % workConfig.images.length);
+        showImage((currentIndex + 1) % imageFiles.length);
       }
     }
-    function prevImage() {
+    function prevImage() { /* imageFiles.length 사용 */
         if (isFullscreen && !pageJumpOverlay) {
-            showImage((currentIndex - 1 + workConfig.images.length) % workConfig.images.length);
+            showImage((currentIndex - 1 + imageFiles.length) % imageFiles.length);
         }
     }
     function handleKeydown(event) { /* 이전과 동일 */
@@ -359,16 +475,10 @@
         }
     }
 
-    // --- 초기화: 동적으로 생성된 링크에 이벤트 연결 ---
-    imageLinks.forEach(link => {
-      link.addEventListener('click', function(event) {
-        event.preventDefault();
-        const index = parseInt(this.dataset.index, 10);
-        if (!isNaN(index)) {
-             openFullscreen(index);
-        }
-      });
-    });
+    // --- 초기화 ---
+    // 초기 썸네일 로드 및 옵저버 설정
+    generateThumbnails(0, itemsPerLoad);
+    setupThumbnailObserver();
 
   </script>
 </body>

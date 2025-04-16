@@ -1,0 +1,19 @@
+# works 폴더 내의 이미지 파일들을 Git 관리에서 제외
+works/**/*.png
+works/**/*.jpg
+works/**/*.jpeg
+works/**/*.webp
+works/**/*.gif
+works/**/*.avif
+
+# 필요하다면 다른 제외 항목 추가 (예: node_modules)
+# node_modules/
+
+# macOS 시스템 파일
+.DS_Store
+
+# Windows 썸네일 캐시
+Thumbs.db
+
+# 로그 파일 등
+*.log

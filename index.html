@@ -132,6 +132,9 @@
     const clearSearchButton = document.getElementById('clear-search-button');
     const paginationControls = document.getElementById('pagination-controls');
 
+    // ⭐⭐⭐ 외부 이미지 호스팅 기본 URL 설정 ⭐⭐⭐
+    const baseImageUrl = 'https://pub-2762a42350fa43fba86173c9f291ebcd.r2.dev/'; // 👈 본인의 R2 공개 URL로 변경하세요! (끝에 '/' 포함)
+
     const itemsPerPage = 16; // 페이지당 항목 수
     let currentPage = 1; // 현재 페이지 번호
     let currentDataSet = []; // 현재 화면에 표시할 전체 데이터셋
@@ -166,7 +169,7 @@
             const workDiv = document.createElement('div');
             workDiv.className = 'work';
             const link = document.createElement('a');
-            link.href = `works/${work.id}/index.html`;
+            link.href = `works/${work.id}/index.html`; // 링크는 그대로 로컬 경로 유지 (페이지 이동용)
             const infoDiv = document.createElement('div');
             infoDiv.className = 'info-top';
             const titleSpan = document.createElement('span');
@@ -183,7 +186,8 @@
             const img = document.createElement('img');
             // 이미지 경로 오류 방지: work.firstImage가 null이나 undefined가 아닌지 확인
             if (work.firstImage) {
-                img.src = `works/${work.id}/${work.firstImage}`;
+                // ⭐⭐⭐ 이미지 URL 조합 변경 ⭐⭐⭐
+                img.src = `${baseImageUrl}works/${work.id}/${work.firstImage}`; // 외부 R2 URL 사용
             } else {
                 img.src = ''; // 대체 이미지 경로 또는 빈 값
                 console.warn(`Work item ${work.id} has no firstImage defined.`);

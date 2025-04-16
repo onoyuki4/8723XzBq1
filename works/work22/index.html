@@ -128,6 +128,9 @@ Use code with caution.
         // throw new Error("workConfig is not defined or invalid in config.js!");
     }
 
+    // ⭐⭐⭐ 외부 이미지 호스팅 기본 URL 설정 ⭐⭐⭐
+    const baseImageUrl = 'https://pub-2762a42350fa43fba86173c9f291ebcd.r2.dev/'; // 👈 본인의 R2 공개 URL로 변경하세요! (끝에 '/' 포함)
+
     const imageFiles = workConfig.images; // 이미지 목록 가져오기
     const fullscreenContainer = document.getElementById('fullscreen-container');
     const bodyElement = document.body;
@@ -147,26 +150,30 @@ Use code with caution.
     let thumbnailObserver = null;
     let imageLazyLoadObserver = null; // 개별 이미지 로딩 옵저버
 
-    function generateThumbnails(startIndex, count) { /* 이전과 동일 */
+    function generateThumbnails(startIndex, count) {
         const fragment = document.createDocumentFragment();
         const endIndex = Math.min(startIndex + count, imageFiles.length);
         for (let index = startIndex; index < endIndex; index++) {
             if (index > lastLoadedIndex) {
                 const filename = imageFiles[index];
                 const link = document.createElement('a');
-                link.href = filename;
-                link.dataset.index = index;
+                // ⭐⭐⭐ 링크 href 수정 (선택 사항) ⭐⭐⭐
+                link.href = `${baseImageUrl}works/${workConfig.id}/${filename}`; // 외부 URL 사용
+                link.dataset.index = index; // 인덱스는 그대로 유지
+
                 const img = document.createElement('img');
-                img.dataset.src = filename;
+                // ⭐⭐⭐ 이미지 data-src URL 조합 변경 ⭐⭐⭐
+                img.dataset.src = `${baseImageUrl}works/${workConfig.id}/${filename}`; // 외부 URL 사용
                 img.alt = `${workConfig.title || 'Image'} - Image ${index + 1}`;
-                img.loading = 'lazy';
+                img.loading = 'lazy'; // 이미 lazy loading 사용 중
+
                 link.appendChild(img);
                 fragment.appendChild(link);
                 lastLoadedIndex = index;
             }
         }
         imagesContainer.appendChild(fragment);
-        addViewerEventListeners(startIndex, endIndex);
+        addViewerEventListeners(startIndex, endIndex); // 이벤트 리스너는 그대로 추가
         if (endIndex >= imageFiles.length && thumbnailObserver && loadMoreTrigger) {
             thumbnailObserver.unobserve(loadMoreTrigger);
             loadMoreTrigger.style.display = 'none';
@@ -207,8 +214,8 @@ Use code with caution.
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
                         const lazyImage = entry.target;
-                        if (lazyImage.dataset.src) { // data-src 있는지 확인
-                            lazyImage.src = lazyImage.dataset.src;
+                        if (lazyImage.dataset.src) { // data-src 있는지 확인 (이미 외부 URL임)
+                            lazyImage.src = lazyImage.dataset.src; // 외부 URL 설정
                             lazyImage.classList.add('lazyloaded');
                             observer.unobserve(lazyImage);
                         }
@@ -235,9 +242,10 @@ Use code with caution.
     const dragStartThreshold = 5, clickDebounceTime = 60;
     const preloadCache = new Set(); // 프리로드 캐시
 
-    function preloadImage(index) { /* 이전과 동일 */
+    function preloadImage(index) {
         if (index < 0 || index >= imageFiles.length) return;
-        const imageUrl = imageFiles[index];
+        // ⭐⭐⭐ 이미지 URL 조합 변경 ⭐⭐⭐
+        const imageUrl = `${baseImageUrl}works/${workConfig.id}/${imageFiles[index]}`; // 외부 URL 사용
         if (!imageUrl || preloadCache.has(imageUrl)) return;
         const img = new Image(); img.src = imageUrl;
         preloadCache.add(imageUrl);
@@ -247,17 +255,19 @@ Use code with caution.
         counterElement.innerText = `${currentIndex + 1} / ${imageFiles.length}`;
       }
     }
-    function showImage(index) { /* imageFiles.length, imageFiles[currentIndex] 사용 */
+    function showImage(index) {
         if (!isFullscreen) return;
         if (index >= 0 && index < imageFiles.length) {
             currentIndex = index;
-            const imageUrl = imageFiles[currentIndex]; // 배열 직접 사용
+            // ⭐⭐⭐ 이미지 URL 조합 변경 ⭐⭐⭐
+            const imageUrl = `${baseImageUrl}works/${workConfig.id}/${imageFiles[currentIndex]}`; // 외부 URL 사용
             if (viewerImage) {
                 viewerImage.style.transition = 'none';
                 viewerImage.style.transform = '';
-                viewerImage.src = imageUrl;
+                viewerImage.src = imageUrl; // 외부 URL 설정
                 updateCounter();
                 setTimeout(() => { if(viewerImage) viewerImage.style.transition = ''; }, 50);
+                // Preload 호출 시 이미 외부 URL을 사용하도록 preloadImage 함수가 수정됨
                 preloadImage(currentIndex + 1);
                 preloadImage(currentIndex - 1);
             }
@@ -348,16 +358,22 @@ Use code with caution.
             clearTimeout(clickTimeoutId); if (diffX > 0) { prevImage(); } else { nextImage(); } return;
         }
     }
-    function openFullscreen(index) { /* imageFiles 직접 사용 */
+    function openFullscreen(index) {
       if (isFullscreen) return;
       currentIndex = index; isFullscreen = true;
-      const imageUrl = imageFiles[currentIndex]; // 배열 직접 사용
+      // ⭐⭐⭐ 이미지 URL 조합 변경 ⭐⭐⭐
+      const imageUrl = `${baseImageUrl}works/${workConfig.id}/${imageFiles[currentIndex]}`; // 외부 URL 사용
       if (!imageUrl) { console.error("Invalid image index:", index); return; }
       bodyElement.classList.add('fullscreen-active');
       fullscreenViewer = document.createElement('div'); fullscreenViewer.classList.add('fullscreen-viewer');
-      fullscreenViewer.innerHTML = `<img src="${imageUrl}" alt="${workConfig.title || 'Image'} - Image ${currentIndex + 1}">`;
+      // ⭐⭐⭐ 이미지 URL 조합 변경 (img src) ⭐⭐⭐
+      fullscreenViewer.innerHTML = `<img src="${imageUrl}" alt="${workConfig.title || 'Image'} - Image ${currentIndex + 1}">`; // 외부 URL 사용
       viewerImage = fullscreenViewer.querySelector('img');
-      viewerImage.onload = () => { preloadImage(currentIndex + 1); preloadImage(currentIndex - 1); };
+      viewerImage.onload = () => {
+          // ⭐⭐⭐ preload도 수정된 URL 사용 ⭐⭐⭐
+          preloadImage(currentIndex + 1);
+          preloadImage(currentIndex - 1);
+      };
       viewerImage.onerror = () => { console.error("Failed load:", imageUrl); };
       fullscreenViewer.addEventListener('click', handleViewerClick);
       viewerImage.addEventListener('mousedown', handlePointerDown);
